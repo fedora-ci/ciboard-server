@@ -26,6 +26,7 @@ import { delegateToSchema } from '@graphql-tools/delegate';
 import { GreenWaiveDecisionType, greenwave } from './greenwaive_types';
 import { GreenwaveProductsType, KnownTypes, known_types } from '../cfg';
 import { GraphQLUnionType } from 'graphql';
+import BigInt from 'graphql-bigint';
 
 const debug = require('debug');
 const log = debug('osci:db_types');
@@ -156,15 +157,34 @@ const StateArtifactType = new GraphQLObjectType({
 const StateType = new GraphQLObjectType({
   name: 'StateType',
   fields: () => ({
+    broker_msg_body: { type: BrokerMsgTestType },
+    kai_state: { type: KaiStateType },
+  }),
+});
+
+const KaiStateType = new GraphQLObjectType({
+  name: 'KaiStateType',
+  fields: () => ({
+    thread_id: { type: GraphQLString },
+    msg_id: { type: GraphQLString },
+    version: { type: GraphQLString },
+    stage: { type: GraphQLString },
+    timestamp: { type: BigInt as graphql.GraphQLOutputType },
+    origin: { type: StateOriginType },
+  }),
+});
+
+const BrokerMsgTestType = new GraphQLObjectType({
+  name: 'BrokerMsgTestType',
+  fields: () => ({
     note: { type: GraphQLString },
     type: { type: GraphQLString },
     docs: { type: GraphQLString },
     state: { type: GraphQLString },
     stage: { type: GraphQLString },
-    msg_id: { type: GraphQLString },
     reason: { type: GraphQLString },
     status: { type: GraphQLString },
-    timestamp: { type: GraphQLInt },
+    timestamp: { type: BigInt as graphql.GraphQLOutputType },
     string: { type: GraphQLString },
     version: { type: GraphQLString },
     system: { type: StateSystemType },

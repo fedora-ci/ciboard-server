@@ -545,14 +545,14 @@ const RootQuery = new GraphQLObjectType({
           args_default
         );
         const { atype, limit } = args_with_default;
-        const add_path = [['current-state', 'current_state']];
+        const add_path: string[][] = [];
         log('Requested: %o', args_with_default);
         const cursor = await mk_cursor(args_with_default);
         const artifacts = await cursor.toArray();
         // close() is promise, ignore result
         cursor.close();
         log(
-          'Fetched artifacts of type %s aids: %o',
+          ' [i] fetched artifacts of type %s aids: %o',
           atype,
           _.map(artifacts, 'aid')
         );
@@ -583,6 +583,7 @@ const RootQuery = new GraphQLObjectType({
            */
           cursor.close();
         }
+        log('XXX %O', artifacts);
         return {
           artifacts,
           has_next,
