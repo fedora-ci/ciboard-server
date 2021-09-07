@@ -19,6 +19,7 @@
  */
 
 import _ from 'lodash';
+import process from 'process';
 import debug from 'debug';
 import {
   Document,
@@ -32,7 +33,6 @@ import { getcfg } from '../cfg';
 const log = debug('osci:db');
 const cfg = getcfg();
 
-const tlsCAFile = '/home/andrei/osci/keys/digicert.pem';
 const options_default = {};
 const options: MongoClientOptions = _.pickBy(
   _.defaultsDeep(cfg.db.options, options_default)
@@ -49,9 +49,17 @@ export const client_promise = new MongoClient(cfg.db.url, options).connect();
   const cursor = collection.find().sort({ _id: -1 }).limit(1);
   const artifacts = await cursor.toArray();
   const last = artifacts[0];
-  log("Latest entry: {aid: '%s', type: '%s'}", last['aid'], last['type']);
+  log(
+    "Latest entry: {aid: '%s', type: '%s', updated: %s}",
+    last['aid'],
+    last['type'],
+    last['_updated']
+  );
   await cursor.close();
-})().catch(console.dir);
+})().catch((error) => {
+  console.dir(error);
+  process.exit(1);
+});
 
 const known_types = {
   'brew-build': 'rpm_build.nvr',
