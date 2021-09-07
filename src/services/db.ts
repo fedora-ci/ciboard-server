@@ -56,8 +56,8 @@ export const client_promise = new MongoClient(cfg.db.url, options).connect();
     last['_updated']
   );
   await cursor.close();
-})().catch((error) => {
-  console.dir(error);
+})().catch((...error) => {
+  console.dir(...error);
   process.exit(1);
 });
 
