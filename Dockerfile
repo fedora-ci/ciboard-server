@@ -25,7 +25,7 @@ RUN ["bash","-c", "--", "npm install"]
 RUN ["bash","-c", "--", "npm run build"]
 
 # Acquire the freshest snapshot of the dashboard
-COPY --from=frontend "/opt/app-root/src/ciboard/build" "$HOME/build/frontend/"
+COPY --from=frontend "/opt/app-root/src/ciboard/build" "$HOME/frontend/"
 
 # Provide defaults for an executing container
 # Later, helm-chart will set 'NPM_RUN' variable to 'start:server'
