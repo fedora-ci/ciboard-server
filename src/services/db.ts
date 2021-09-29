@@ -64,6 +64,7 @@ export const client_promise = new MongoClient(cfg.db.url, options).connect();
 const known_types = {
   'brew-build': 'rpm_build.nvr',
   'koji-build': 'rpm_build.nvr',
+  'koji-build-cs': 'rpm_build.nvr',
   'redhat-module': 'mbs_build.nsvc',
   'copr-build': 'component',
   'productmd-compose': 'compose.aid',

@@ -413,7 +413,7 @@ export const ArtifactType = new GraphQLObjectType({
       type: ArtifactPayloadType,
       resolve(parentValue, args, context, info) {
         const { type } = parentValue;
-        if (type === 'koji-build') {
+        if (type === 'koji-build' || type == 'koji-build-cs') {
           return new RPMBuild(parentValue.rpm_build);
         }
       },

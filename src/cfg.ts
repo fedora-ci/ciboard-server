@@ -264,6 +264,7 @@ const cfg = getcfg();
 export const known_types = {
   'brew-build': 'nvr',
   'koji-build': 'nvr',
+  'koji-build-cs': 'rpm_build.nvr',
   'redhat-module': 'nsvc',
   'copr-build': 'component',
   'productmd-compose': 'aid',
