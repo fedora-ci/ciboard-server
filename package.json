@@ -29,6 +29,7 @@
     "graphql": "^15.5.1",
     "graphql-bigint": "^1.0.0",
     "graphql-tag": "^2.12.5",
+    "graphql-type-json": "^0.3.2",
     "js-yaml": "^4.1.0",
     "kerberos": "^1.1.6",
     "lodash": "^4.17.21",

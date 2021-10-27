@@ -583,7 +583,6 @@ const RootQuery = new GraphQLObjectType({
            */
           cursor.close();
         }
-        log('XXX %O', artifacts);
         return {
           artifacts,
           has_next,

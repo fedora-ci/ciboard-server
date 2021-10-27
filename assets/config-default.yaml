@@ -119,6 +119,12 @@ env_to_config_map:
   distgit:
     rh:
       base_url: SRV_DISTGIT_RH_BASE_URL
+    cs:
+      base_url: SRV_DISTGIT_CS_BASE_URL
+      base_url_api: SRV_DISTGIT_CS_BASE_API_URL
+    fp:
+      base_url: SRV_DISTGIT_FP_BASE_URL
+      base_url_api: SRV_DISTGIT_FP_BASE_API_URL
   krb:
     keytab: SRV_KRB_KEYTAB
     principal: SRV_KRB_PRINCIPAL
