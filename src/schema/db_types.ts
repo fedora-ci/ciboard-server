@@ -289,7 +289,14 @@ const StateType = new GraphQLObjectType({
 const KaiStateType = new GraphQLObjectType({
   name: 'KaiStateType',
   fields: () => ({
-    stage: { type: GraphQLString },
+    stage: {
+      type: GraphQLString,
+      description: 'Example: build, dispatch, test, promote',
+    },
+    state: {
+      type: GraphQLString,
+      description: 'Example: complete, running, error',
+    },
     msg_id: { type: GraphQLString },
     origin: { type: StateOriginType },
     version: { type: GraphQLString },
