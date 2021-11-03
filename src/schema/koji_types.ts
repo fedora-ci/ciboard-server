@@ -32,6 +32,7 @@ const {
 
 import { koji_query } from '../services/kojibrew';
 import { CommitObject } from './distgit_types';
+import schema from './schema';
 import { delegateToSchema } from '@graphql-tools/delegate';
 import { GraphQLNonNull } from 'graphql';
 
@@ -173,7 +174,6 @@ export const KojiBuildInfoType = new GraphQLObjectType({
     history: {
       type: KojiHistoryType,
       resolve(parentValue, args, context, info) {
-        const schema = require('./schema');
         const { build_id } = parentValue;
         log('Getting Koji history for build id: %s', build_id);
         /**
@@ -183,9 +183,9 @@ export const KojiBuildInfoType = new GraphQLObjectType({
           return {};
         }
         return delegateToSchema({
-          schema: schema,
+          schema,
           operation: 'query',
-          fieldName: 'brew_build_history',
+          fieldName: 'koji_build_history',
           args: {
             build_id,
           },
@@ -197,7 +197,6 @@ export const KojiBuildInfoType = new GraphQLObjectType({
     tags: {
       type: new GraphQLList(KojiBuildTagsType),
       resolve(parentValue, args, context, info) {
-        const schema = require('./schema');
         const { build_id } = parentValue;
         log('Getting Koji tags for build id: %s', build_id);
         /**
@@ -207,9 +206,9 @@ export const KojiBuildInfoType = new GraphQLObjectType({
           return {};
         }
         return delegateToSchema({
-          schema: schema,
+          schema,
           operation: 'query',
-          fieldName: 'brew_build_tags',
+          fieldName: 'koji_build_tags',
           args: {
             build_id,
           },
@@ -222,7 +221,6 @@ export const KojiBuildInfoType = new GraphQLObjectType({
     commit_obj: {
       type: CommitObject,
       resolve(parentValue, args, context, info) {
-        const schema = require('./schema');
         const { source } = parentValue;
         const name_sha1 = _.last(_.split(source, 'rpms/'));
         const [name, sha1] = _.split(name_sha1, '#');
@@ -237,7 +235,7 @@ export const KojiBuildInfoType = new GraphQLObjectType({
           args: {
             repo_name: name,
             commit_sha1: sha1,
-            distgit_name: 'rh',
+            distgit_name: 'fp',
           },
           context,
           info,

@@ -24,7 +24,9 @@ import RootQueryType from './root_query_type';
 
 const { GraphQLSchema } = graphql;
 
-export default new GraphQLSchema({
+const schema : graphql.GraphQLSchema = new GraphQLSchema({
   mutation: mutations,
   query: RootQueryType,
 });
+
+export default schema;

@@ -23,7 +23,6 @@ import pako from 'pako';
 import axios from 'axios';
 import * as graphql from 'graphql';
 import GraphQLJSON, { GraphQLJSONObject } from 'graphql-type-json';
-import { delegateToSchema } from '@graphql-tools/delegate';
 import { GreenWaiveDecisionType, greenwave } from './greenwaive_types';
 import { GreenwaveProductsType, KnownTypes, known_types } from '../cfg';
 import { GraphQLUnionType } from 'graphql';

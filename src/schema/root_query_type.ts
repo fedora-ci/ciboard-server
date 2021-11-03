@@ -479,7 +479,8 @@ const RootQuery = new GraphQLObjectType({
           commit_obj = commitObjFromGitLabApi(reply.data);
         }
         if (instance === 'fp') {
-          url = `${cfg.distgit.fp.base_url_api}/${namespace}/${repo_name}/c/${commit_sha1}/info`;
+          const repo_name_ = _.replace(repo_name, /\.git$/, '');
+          url = `${cfg.distgit.fp.base_url_api}/${namespace}/${repo_name_}/c/${commit_sha1}/info`;
           const reply = await axios.get(url);
           commit_obj = commitObjFromPagureApi(reply.data);
         } else {
