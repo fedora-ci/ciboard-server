@@ -157,12 +157,7 @@ export const mk_cursor = async (args: QueryOptions) => {
       .sort({ aid: aid_direction })
       .limit(limit)
       .project({
-        states: 0,
-        'current-state.error.xunit': 0,
-        'current-state.queued.xunit': 0,
-        'current-state.waived.xunit': 0,
-        'current-state.running.xunit': 0,
-        'current-state.complete.xunit': 0,
+        'states.broker_msg_body.xunit': 0,
       });
   } else {
     throw new Error('Incorrect arguments for mk_cursor()');
