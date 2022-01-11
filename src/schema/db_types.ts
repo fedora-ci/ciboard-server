@@ -328,17 +328,6 @@ const loadXunitFromUrl = async (url: string) => {
   return response;
 };
 
-const ArtifactCurrentStateType = new GraphQLObjectType({
-  name: 'ArtifactCurrentStateType',
-  fields: () => ({
-    error: { type: new GraphQLList(StateType) },
-    queued: { type: new GraphQLList(StateType) },
-    waived: { type: new GraphQLList(StateType) },
-    running: { type: new GraphQLList(StateType) },
-    complete: { type: new GraphQLList(StateType) },
-  }),
-});
-
 // const ArtifactStateStatusType = new GraphQLObjectType({
 //     name: 'ArtifactStateStatusType',
 //     fields: () => ({
@@ -458,8 +447,43 @@ export const ArtifactType = new GraphQLObjectType({
         }
       },
     },
-    states: { type: new GraphQLList(StateType) },
-    current_state: { type: ArtifactCurrentStateType },
+    states: {
+      type: new GraphQLList(StateType),
+      args: {
+        onlyactual: {
+          type: GraphQLBoolean,
+          description: 'Show only actual states based on thread-id.',
+          defaultValue: false,
+        },
+      },
+      resolve(parentValue, args, context, info) {
+        const { states } = parentValue;
+        const { onlyactual } = args;
+        if (!onlyactual) {
+          return states;
+        }
+        /**
+         * thread_id is mandatory field. It present in each state-entry.
+         * Split all states in groups by thread_id
+         */
+        const states_for_same_thread = _.values(
+          _.groupBy(states, 'kai_state.thread_id')
+        );
+        log(' [d] steates for same thread: %O', states_for_same_thread);
+        /**
+         * get the most recent state for each thread
+         */
+        const recent_for_each_thread = _.map(
+          states_for_same_thread,
+          _.flow(
+            _.identity,
+            _.partialRight(_.orderBy, 'kai_state.timestamp', 'desc'),
+            _.first
+          )
+        );
+        return recent_for_each_thread;
+      },
+    },
   }),
 });
 
