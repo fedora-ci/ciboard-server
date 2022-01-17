@@ -31,12 +31,12 @@ const {
 } = graphql;
 
 import { koji_query } from '../services/kojibrew';
-import { CommitObject } from './distgit_types';
+import { CommitObject, DistGitInstanceInputType } from './distgit_types';
 import schema from './schema';
 import { delegateToSchema } from '@graphql-tools/delegate';
 import { GraphQLNonNull } from 'graphql';
 
-const log = debug('osci:brew_types');
+const log = debug('osci:koji_types');
 
 /**
  * API informaion sources:
@@ -84,7 +84,7 @@ export const KojiTaskInfoType = new GraphQLObjectType({
     builds: {
       type: new GraphQLList(KojiBuildInfoType),
       args: {
-        koji_instance: {
+        instance: {
           type: KojiInstanceInputType,
           description: 'Koji hub name',
           defaultValue: 'fedoraproject',
@@ -99,9 +99,9 @@ export const KojiTaskInfoType = new GraphQLObjectType({
          * Args shouldn't be shared between resolvers
          * https://stackoverflow.com/questions/48382897/graphql-access-arguments-in-child-resolvers/63300135#63300135
          */
-        const { task_id, koji_instance } = args;
-        log(' [i] Query brew for listBuilds. Task id : %s', task_id);
-        const reply = await koji_query(koji_instance, 'listBuilds', {
+        const { task_id, instance } = args;
+        log(' [i] Query %s for listBuilds. Task id : %s', instance, task_id);
+        const reply = await koji_query(instance, 'listBuilds', {
           __starstar: true,
           taskID: task_id,
         });
@@ -173,8 +173,16 @@ export const KojiBuildInfoType = new GraphQLObjectType({
     /** History */
     history: {
       type: KojiHistoryType,
+      args: {
+        instance: {
+          type: KojiInstanceInputType,
+          description: 'Koji hub name',
+          defaultValue: 'fedoraproject',
+        },
+      },
       resolve(parentValue, args, context, info) {
         const { build_id } = parentValue;
+        const { instance } = args;
         log('Getting Koji history for build id: %s', build_id);
         /**
          * https://www.graphql-tools.com/docs/schema-delegation/
@@ -188,6 +196,7 @@ export const KojiBuildInfoType = new GraphQLObjectType({
           fieldName: 'koji_build_history',
           args: {
             build_id,
+            instance,
           },
           context,
           info,
@@ -196,8 +205,16 @@ export const KojiBuildInfoType = new GraphQLObjectType({
     },
     tags: {
       type: new GraphQLList(KojiBuildTagsType),
+      args: {
+        instance: {
+          type: KojiInstanceInputType,
+          description: 'Koji hub name',
+          defaultValue: 'fedoraproject',
+        },
+      },
       resolve(parentValue, args, context, info) {
         const { build_id } = parentValue;
+        const { instance } = args;
         log('Getting Koji tags for build id: %s', build_id);
         /**
          * https://www.graphql-tools.com/docs/schema-delegation/
@@ -211,6 +228,7 @@ export const KojiBuildInfoType = new GraphQLObjectType({
           fieldName: 'koji_build_tags',
           args: {
             build_id,
+            instance,
           },
           context,
           info,
@@ -220,8 +238,16 @@ export const KojiBuildInfoType = new GraphQLObjectType({
     /** Git commit object */
     commit_obj: {
       type: CommitObject,
+      args: {
+        instance: {
+          type: DistGitInstanceInputType,
+          description: 'Dist-git name',
+          defaultValue: 'fp',
+        },
+      },
       resolve(parentValue, args, context, info) {
         const { source } = parentValue;
+        const { instance } = args;
         const name_sha1 = _.last(_.split(source, 'rpms/'));
         const [name, sha1] = _.split(name_sha1, '#');
         log('Getting commit-object for %s:%s', name, sha1);
@@ -235,7 +261,7 @@ export const KojiBuildInfoType = new GraphQLObjectType({
           args: {
             repo_name: name,
             commit_sha1: sha1,
-            distgit_name: 'fp',
+            instance,
           },
           context,
           info,

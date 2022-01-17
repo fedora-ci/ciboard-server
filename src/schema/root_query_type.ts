@@ -416,7 +416,7 @@ const RootQuery = new GraphQLObjectType({
       },
       async resolve(parentValue, args) {
         const { build_id, instance } = args;
-        log('Query %s for getBuild. Build id : %s', instance, build_id);
+        log('Query %s for listTags. Build id : %s', instance, build_id);
         const reply = await koji_query(instance, 'listTags', build_id);
         log('Koji reply: %o', reply);
         return reply;
