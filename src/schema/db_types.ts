@@ -1,7 +1,7 @@
 /*
  * This file is part of ciboard-server
 
- * Copyright (c) 2021 Andrei Stepanov <astepano@redhat.com>
+ * Copyright (c) 2021, 2022 Andrei Stepanov <astepano@redhat.com>
  * 
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -22,9 +22,8 @@ import _ from 'lodash';
 import pako from 'pako';
 import axios from 'axios';
 import * as graphql from 'graphql';
-import GraphQLJSON, { GraphQLJSONObject } from 'graphql-type-json';
-import { GreenWaiveDecisionType, greenwave } from './greenwaive_types';
-import { GreenwaveProductsType, KnownTypes, known_types } from '../cfg';
+import GraphQLJSON from 'graphql-type-json';
+import { TKnownType, known_types } from '../cfg';
 import { GraphQLUnionType } from 'graphql';
 import BigInt from 'graphql-bigint';
 
@@ -352,7 +351,7 @@ const loadXunitFromUrl = async (url: string) => {
 //     }),
 // });
 
-const nameFieldForType = (type: KnownTypes) => {
+const nameFieldForType = (type: TKnownType) => {
   const includes = _.includes(_.keys(known_types), type);
   if (!includes) {
     return 'unknown type';
@@ -374,63 +373,6 @@ const convertNsvcToNvr = (nsvc: string) => {
   }`;
 };
 
-class Payload {
-  constructor(obj: any) {
-    Object.assign(this, obj);
-  }
-}
-class MBSBuild extends Payload {}
-class RPMBuild extends Payload {}
-class Compose extends Payload {}
-
-export const ArtifactRPMBuildType = new GraphQLObjectType({
-  name: 'ArtifactRPMBuildType',
-  description: 'Defines artifact entry for RPM build.',
-  fields: () => ({
-    nvr: { type: GraphQLString },
-    uid: { type: GraphQLString },
-    branch: { type: GraphQLString },
-    issuer: { type: GraphQLString },
-    source: { type: GraphQLString },
-    scratch: { type: GraphQLBoolean },
-    component: { type: GraphQLString },
-    comment_id: { type: GraphQLString },
-    repository: { type: GraphQLString },
-    commit_hash: { type: GraphQLString },
-    dependencies: { type: GraphQLString },
-    gate_tag_name: { type: GraphQLString },
-  }),
-  isTypeOf: (payload_value) => payload_value instanceof RPMBuild,
-});
-
-export const ArtifactComposeType = new GraphQLObjectType({
-  name: 'ArtifactComposeType',
-  description: 'Defines artifact entry for Compose.',
-  fields: () => ({
-    compose_type: { type: GraphQLString },
-  }),
-  isTypeOf: (payload_value) => payload_value instanceof Compose,
-});
-
-export const ArtifactMBSBuildType = new GraphQLObjectType({
-  name: 'ArtifactMBSBuildType',
-  description: 'Defines artifact entry for MBS build.',
-  fields: () => ({
-    uid: { type: GraphQLString },
-    name: { type: GraphQLString },
-    nsvc: { type: GraphQLString },
-    stream: { type: GraphQLString },
-    context: { type: GraphQLString },
-    version: { type: GraphQLString },
-  }),
-  isTypeOf: (payload_value) => payload_value instanceof MBSBuild,
-});
-
-export const ArtifactPayloadType = new GraphQLUnionType({
-  name: 'ArtifactPayloadType',
-  types: [ArtifactRPMBuildType, ArtifactMBSBuildType, ArtifactComposeType],
-});
-
 export const ArtifactType = new GraphQLObjectType({
   name: 'ArtifactType',
   description: 'Defines artifact entry.',
@@ -439,13 +381,7 @@ export const ArtifactType = new GraphQLObjectType({
     type: { type: GraphQLString },
     aid: { type: GraphQLString },
     payload: {
-      type: ArtifactPayloadType,
-      resolve(parentValue, args, context, info) {
-        const { type } = parentValue;
-        if (type === 'koji-build' || type == 'koji-build-cs') {
-          return new RPMBuild(parentValue.rpm_build);
-        }
-      },
+      type: GraphQLJSON,
     },
     states: {
       type: new GraphQLList(StateType),

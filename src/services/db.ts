@@ -1,7 +1,7 @@
 /*
  * This file is part of ciboard-server
 
- * Copyright (c) 2021 Andrei Stepanov <astepano@redhat.com>
+ * Copyright (c) 2021, 2022 Andrei Stepanov <astepano@redhat.com>
  * 
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -28,7 +28,7 @@ import {
   MongoClientOptions,
   SortDirection,
 } from 'mongodb';
-import { getcfg } from '../cfg';
+import { getcfg, TKnownType, known_types } from '../cfg';
 
 const log = debug('osci:db');
 const cfg = getcfg();
@@ -61,19 +61,8 @@ export const client_promise = new MongoClient(cfg.db.url, options).connect();
   process.exit(1);
 });
 
-const known_types = {
-  'brew-build': 'rpm_build.nvr',
-  'koji-build': 'rpm_build.nvr',
-  'koji-build-cs': 'rpm_build.nvr',
-  'redhat-module': 'mbs_build.nsvc',
-  'copr-build': 'component',
-  'productmd-compose': 'compose.aid',
-};
-
-type artifact_type = keyof typeof known_types;
-
 export type QueryOptions = {
-  atype: artifact_type;
+  atype: TKnownType;
   limit: number;
   regexs: RegExp[];
   options: {
@@ -87,7 +76,7 @@ export type QueryOptions = {
 interface MongoQuery {
   [dbFieldName: string]: any;
   aid?: any;
-  type: artifact_type;
+  type: TKnownType;
 }
 
 /**

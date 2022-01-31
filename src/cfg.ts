@@ -261,16 +261,28 @@ export interface Cfg {
 
 const cfg = getcfg();
 
+/**
+ * These are default search-field for each artifact type
+ *
+ * List here all possible artifact-types:
+ *
+ * https://github.com/fedora-ci/kaijs/blob/main/src/dbInterface.ts#L24
+ * https://pagure.io/greenwave/blob/master/f/conf/subject_types
+ * https://gitlab.cee.redhat.com/gating/greenwave-playbooks/-/blob/master/roles/greenwave/files/subject_types.yaml
+ *
+ */
 export const known_types = {
-  'brew-build': 'nvr',
-  'koji-build': 'nvr',
-  'koji-build-cs': 'rpm_build.nvr',
-  'redhat-module': 'nsvc',
+  'brew-build': 'payload.nvr',
+  'koji-build': 'payload.nvr',
+  'koji-build-cs': 'payload.nvr',
+  'redhat-module': 'payload.nsvc',
+  // XXX: ???
   'copr-build': 'component',
-  'productmd-compose': 'aid',
+  // XXX: ???
+  'productmd-compose': 'compose.aid',
 };
 
-export type KnownTypes = keyof typeof known_types;
+export type TKnownType = keyof typeof known_types;
 
 let greenwave_cfg_ = undefined;
 if (cfg.greenwave?.url) {
@@ -301,14 +313,6 @@ if (cfg.greenwave?.url) {
   };
 }
 export const greenwave_cfg = greenwave_cfg_;
-
-/**
- * Maps to greenwavedecision.product_version:
- */
-export type GreenwaveProductsType =
-  | 'brew-build'
-  | 'redhat-module'
-  | 'redhat-container';
 
 let waiverdb_cfg_ = undefined;
 if (cfg.waiverdb?.url) {
