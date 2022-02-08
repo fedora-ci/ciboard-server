@@ -373,6 +373,21 @@ const convertNsvcToNvr = (nsvc: string) => {
   }`;
 };
 
+export const ComponentComponentMappingType = new GraphQLObjectType({
+  name: 'ComponentComponentMappingType',
+  fields: () => ({
+    component_name: { type: GraphQLString },
+    product_id: { type: GraphQLInt },
+    description: { type: GraphQLString },
+    def_assignee: { type: GraphQLString },
+    def_assignee_name: { type: GraphQLString },
+    qa_contact: { type: GraphQLString },
+    qa_contact_name: { type: GraphQLString },
+    sst_team_name: { type: GraphQLString },
+    _updated: { type: GraphQLString },
+  }),
+});
+
 export const ArtifactType = new GraphQLObjectType({
   name: 'ArtifactType',
   description: 'Defines artifact entry.',
@@ -383,6 +398,7 @@ export const ArtifactType = new GraphQLObjectType({
     payload: {
       type: GraphQLJSON,
     },
+    component_mapping: { type: ComponentComponentMappingType },
     states: {
       type: new GraphQLList(StateType),
       args: {

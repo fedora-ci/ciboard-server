@@ -214,6 +214,7 @@ export interface Cfg {
     limit_default: number;
     db_name: string;
     collection_name: string;
+    collection_name_components: string;
     options: MongoClientOptions;
   };
   koji_fp: {

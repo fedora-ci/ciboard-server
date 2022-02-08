@@ -28,7 +28,7 @@ import { URL } from 'url';
 import * as graphql from 'graphql';
 
 import { getcfg, greenwave_cfg, waiverdb_cfg } from '../cfg';
-import { mk_cursor, QueryOptions } from '../services/db';
+import { mk_cursor, QueryOptions, db_list_sst } from '../services/db';
 import { koji_query } from '../services/kojibrew';
 
 const cfg = getcfg();
@@ -98,6 +98,40 @@ const ArtifactsOptionsInputType = new GraphQLInputObjectType({
   name: 'ArtifactsOptionsInputType',
   fields: () => ({
     skipScratch: { type: GraphQLBoolean },
+    reduced: {
+      type: GraphQLBoolean,
+      description: `
+            Frontend can list a table of artifacts.
+            Gated artifacts can have many CI runs, each of them can have xunit.
+            This results that each such artifact weights megabytes.
+            To speed-up load artifacts in fronted drop most heavy-weight fields.
+            They can be loaded after, if user want's to examine it more close.
+            `,
+    },
+    valuesAreRegex1: {
+      type: GraphQLBoolean,
+      defaultValue: false,
+      description: 'dbFieldValues1 hold regexs rather exact values',
+    },
+    valuesAreRegex2: {
+      type: GraphQLBoolean,
+      defaultValue: false,
+      description: 'dbFieldValues2 hold regexs rather exact values',
+    },
+    valuesAreRegex3: {
+      type: GraphQLBoolean,
+      defaultValue: false,
+      description: 'dbFieldValues3 hold regexs rather exact values',
+    },
+    valuesAreRegexComponentMapping1: {
+      type: GraphQLBoolean,
+      defaultValue: false,
+      description: 'dbFieldValuesMapping1 hold regexs rather exact values',
+    },
+    componentMappingProductId: {
+      type: GraphQLInt,
+      description: 'If specified query collection: components_mapping',
+    },
   }),
 });
 
@@ -514,18 +548,35 @@ const RootQuery = new GraphQLObjectType({
           description:
             'The type of artefact, one of: brew-build, koji_build, copr-build, redhat-module, productmd-compose.',
         },
-        dbFieldName: {
+        dbFieldName1: {
           type: GraphQLString,
-          description: 'Name of field in DB .',
+          description: 'First name of field in DB.',
         },
-        dbFieldValues: {
+        dbFieldName2: {
+          type: GraphQLString,
+          description: 'Second name of field in DB.',
+        },
+        dbFieldName3: {
+          type: GraphQLString,
+          description: 'Third name of field in DB.',
+        },
+        dbFieldNameComponentMapping1: {
+          type: GraphQLString,
+          description: 'First name of field in mapping table.',
+        },
+        dbFieldValues1: {
           type: new GraphQLList(GraphQLString),
           description:
             'List of artifact values for dbFieldName. For example: if dbFieldName=="aid" than: taskID for brew-build and koji_build, mbs id for redhat-module.',
         },
-        regexs: {
+        dbFieldValues2: {
           type: new GraphQLList(GraphQLString),
-          description: 'List of artifact names in regex form.',
+        },
+        dbFieldValues3: {
+          type: new GraphQLList(GraphQLString),
+        },
+        dbFieldValuesComponentMapping1: {
+          type: new GraphQLList(GraphQLString),
         },
         options: {
           type: ArtifactsOptionsInputType,
@@ -588,6 +639,21 @@ const RootQuery = new GraphQLObjectType({
           artifacts,
           has_next,
         };
+      },
+    },
+    db_sst_list: {
+      args: {
+        product_id: {
+          type: GraphQLInt,
+          description:
+            'Return results only for specified product id. RHEL 9: 604, RHEL: 8: 370',
+        },
+      },
+      type: new GraphQLList(GraphQLString),
+      description: 'List know SST teams.',
+      async resolve(_parentValue, args, _context, _info) {
+        const { product_id } = args;
+        return await db_list_sst(product_id);
       },
     },
   }),
