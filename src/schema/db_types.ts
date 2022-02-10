@@ -421,7 +421,6 @@ export const ArtifactType = new GraphQLObjectType({
         const states_for_same_thread = _.values(
           _.groupBy(states, 'kai_state.thread_id')
         );
-        log(' [d] steates for same thread: %O', states_for_same_thread);
         /**
          * get the most recent state for each thread
          */

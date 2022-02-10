@@ -77,6 +77,7 @@ import {
   KojiBuildTagsType,
   KojiInstanceInputType,
 } from './koji_types';
+import { Document } from 'mongodb';
 
 const GreenWaiveWaiverRuleInputType = new GraphQLInputObjectType({
   name: 'GreenWaiveWaiverRuleInputType',
@@ -600,9 +601,23 @@ const RootQuery = new GraphQLObjectType({
         const add_path: string[][] = [];
         log('Requested: %o', args_with_default);
         const cursor = await mk_cursor(args_with_default);
-        const artifacts = await cursor.toArray();
-        // close() is promise, ignore result
-        cursor.close();
+        var artifacts: Array<Document>;
+        try {
+          artifacts = await cursor.toArray();
+        } catch (err) {
+          console.error(
+            'Failed to run cursor for request: %s. Ignoring.: ',
+            args_with_default,
+            _.toString(err)
+          );
+          if (_.isError(err)) {
+            /* close() is promise, ignore result */
+            cursor.close();
+            return;
+          } else {
+            throw err;
+          }
+        }
         log(
           ' [i] fetched artifacts of type %s aids: %o',
           atype,

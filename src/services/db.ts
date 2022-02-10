@@ -45,8 +45,6 @@ export const client_promise = new MongoClient(cfg.db.url, options).connect();
 
 /** For reduced query */
 const project = {
-  states: 0,
-  'states.run': 0,
   'states.xunit': 0,
   'states.test.xunit': 0,
 };
