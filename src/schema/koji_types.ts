@@ -245,16 +245,17 @@ export const KojiBuildInfoType = new GraphQLObjectType({
           defaultValue: 'fp',
         },
       },
-      resolve(parentValue, args, context, info) {
+      async resolve(parentValue, args, context, info) {
         const { source } = parentValue;
         const { instance } = args;
         const name_sha1 = _.last(_.split(source, 'rpms/'));
-        const [name, sha1] = _.split(name_sha1, '#');
+        const [name_dot_git, sha1] = _.split(name_sha1, '#');
+        const name = _.replace(name_dot_git, /.git$/, '');
         log('Getting commit-object for %s:%s', name, sha1);
         if (!_.every([name, sha1])) {
           return {};
         }
-        return delegateToSchema({
+        const co = await delegateToSchema({
           schema: schema,
           operation: 'query',
           fieldName: 'distgit_commit',
@@ -266,6 +267,7 @@ export const KojiBuildInfoType = new GraphQLObjectType({
           context,
           info,
         });
+        return co;
       },
     },
   }),

@@ -496,7 +496,7 @@ const RootQuery = new GraphQLObjectType({
         );
         const [dir, file] = splitAt(2)(commit_sha1);
         var url;
-        var commit_obj: CommitObjectType;
+        let commit_obj: CommitObjectType | undefined;
         if (instance === 'rh') {
           url = `${cfg.distgit.rh.base_url}/cgit/${namespace}/${repo_name}/objects/${dir}/${file}`;
           const reply = await axios.get(url, {
@@ -518,7 +518,8 @@ const RootQuery = new GraphQLObjectType({
           url = `${cfg.distgit.fp.base_url_api}/${namespace}/${repo_name_}/c/${commit_sha1}/info`;
           const reply = await axios.get(url);
           commit_obj = commitObjFromPagureApi(reply.data);
-        } else {
+        }
+        if (_.isUndefined(commit_obj)) {
           return {};
         }
         log(
