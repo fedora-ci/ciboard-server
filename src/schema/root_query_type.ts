@@ -534,7 +534,7 @@ const RootQuery = new GraphQLObjectType({
         return commit_obj;
       },
     },
-    db_artifacts: {
+    artifacts: {
       type: ArtifactsType,
       args: {
         aid_offset: {
@@ -657,7 +657,7 @@ const RootQuery = new GraphQLObjectType({
         };
       },
     },
-    db_sst_list: {
+    sst_list: {
       args: {
         product_id: {
           type: GraphQLInt,
