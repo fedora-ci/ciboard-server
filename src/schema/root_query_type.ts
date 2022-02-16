@@ -18,7 +18,6 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-import url from 'url';
 import _ from 'lodash';
 import zlib from 'zlib';
 import util from 'util';
