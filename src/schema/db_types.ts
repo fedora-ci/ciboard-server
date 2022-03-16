@@ -23,12 +23,9 @@ import pako from 'pako';
 import axios from 'axios';
 import * as graphql from 'graphql';
 import GraphQLJSON from 'graphql-type-json';
-import { TKnownType, known_types } from '../cfg';
-import { GraphQLUnionType } from 'graphql';
 import BigInt from 'graphql-bigint';
-
-const debug = require('debug');
-const log = debug('osci:db_types');
+import { delegateToSchema } from '@graphql-tools/delegate';
+import schema from './schema';
 
 const {
   GraphQLID,
@@ -38,6 +35,16 @@ const {
   GraphQLBoolean,
   GraphQLObjectType,
 } = graphql;
+
+import { TKnownType, known_types } from '../cfg';
+import {
+  GreenwaveDecisionType,
+  greenwave,
+  GreenwaveContextType,
+} from './greenwave_types';
+
+const debug = require('debug');
+const log = debug('osci:db_types');
 
 const StateCiType = new GraphQLObjectType({
   name: 'StateCiType',
@@ -433,6 +440,53 @@ export const ArtifactType = new GraphQLObjectType({
           )
         );
         return recent_for_each_thread;
+      },
+    },
+    greenwave_decision: {
+      type: GreenwaveDecisionType,
+      resolve(parentValue, args, context, info) {
+        log(
+          'Getting greenwave decision for: %s type: %s',
+          parentValue.aid,
+          parentValue.type
+        );
+        // https://www.graphql-tools.com/docs/schema-delegation/
+        const isScratch = _.get(parentValue, 'payload.scratch', true);
+        if (isScratch) {
+          return {};
+        }
+        var item = _.get(
+          /* item: 'nvr', 'nsvc' */
+          parentValue,
+          nameFieldForType(parentValue.type)
+        );
+        if (parentValue.type === 'redhat-module') {
+          /* nsvc -> nvr */
+          item = convertNsvcToNvr(item);
+        }
+        return delegateToSchema({
+          schema: schema,
+          operation: 'query',
+          fieldName: 'greenwave_decision',
+          args: {
+            decision_context:
+              greenwave.decision.context[
+                parentValue.type as GreenwaveContextType
+              ],
+            product_version: greenwave.decision.product_version(
+              item,
+              parentValue.type
+            ),
+            subject: [
+              {
+                item,
+                type: parentValue.type,
+              },
+            ],
+          },
+          context,
+          info,
+        });
       },
     },
   }),

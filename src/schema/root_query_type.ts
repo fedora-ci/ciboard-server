@@ -61,11 +61,11 @@ import {
 } from './distgit_types';
 
 import {
-  GreenWaiveInfoType,
-  GreenWaivePoliciesType,
-  GreenWaiveDecisionType,
-  GreenWaiveSubjectTypesType,
-} from './greenwaive_types';
+  GreenwaveInfoType,
+  GreenwavePoliciesType,
+  GreenwaveDecisionType,
+  GreenwaveSubjectTypesType,
+} from './greenwave_types';
 
 import { ArtifactsType } from './db_types';
 
@@ -78,16 +78,16 @@ import {
 } from './koji_types';
 import { Document } from 'mongodb';
 
-const GreenWaiveWaiverRuleInputType = new GraphQLInputObjectType({
-  name: 'GreenWaiveWaiverRuleInputType',
+const GreenwaveWaiverRuleInputType = new GraphQLInputObjectType({
+  name: 'GreenwaveWaiverRuleInputType',
   fields: () => ({
     type: { type: GraphQLString },
     test_case_name: { type: GraphQLString },
   }),
 });
 
-const GreenWaiveWaiverSubjectInputType = new GraphQLInputObjectType({
-  name: 'GreenWaiveWaiverSubjectInputType',
+const GreenwaveWaiverSubjectInputType = new GraphQLInputObjectType({
+  name: 'GreenwaveWaiverSubjectInputType',
   fields: () => ({
     item: { type: GraphQLString },
     type: { type: GraphQLString },
@@ -271,8 +271,8 @@ const RootQuery = new GraphQLObjectType({
         return axios.get(target_url).then((x) => x.data);
       },
     },
-    greenwaive_info: {
-      type: GreenWaiveInfoType,
+    greenwave_info: {
+      type: GreenwaveInfoType,
       resolve() {
         if (!greenwave_cfg?.url) {
           throw new Error('Greenwave is not configured.');
@@ -282,8 +282,8 @@ const RootQuery = new GraphQLObjectType({
           .then((x) => x.data);
       },
     },
-    greenwaive_subject_types: {
-      type: GreenWaiveSubjectTypesType,
+    greenwave_subject_types: {
+      type: GreenwaveSubjectTypesType,
       resolve() {
         if (!greenwave_cfg?.url) {
           throw new Error('Greenwave is not configured.');
@@ -293,8 +293,8 @@ const RootQuery = new GraphQLObjectType({
           .then((x) => x.data);
       },
     },
-    greenwaive_policies: {
-      type: GreenWaivePoliciesType,
+    greenwave_policies: {
+      type: GreenwavePoliciesType,
       resolve() {
         if (!greenwave_cfg?.url) {
           throw new Error('Greenwave is not configured.');
@@ -304,8 +304,8 @@ const RootQuery = new GraphQLObjectType({
           .then((x) => x.data);
       },
     },
-    greenwaive_decision: {
-      type: GreenWaiveDecisionType,
+    greenwave_decision: {
+      type: GreenwaveDecisionType,
       args: {
         subject_type: {
           type: GraphQLString,
@@ -333,7 +333,7 @@ const RootQuery = new GraphQLObjectType({
             'A date (or datetime) in ISO8601 format. Greenwave will take a decision considering only results and waivers until that point in time. Use this to get previous decision disregarding a new test result or waiver.',
         },
         subject: {
-          type: new GraphQLList(GreenWaiveWaiverSubjectInputType),
+          type: new GraphQLList(GreenwaveWaiverSubjectInputType),
           description:
             'A list of items about which the caller is requesting a decision used for querying ResultsDB and WaiverDB. Each item contains one or more key-value pairs of ‘data’ key in ResultsDB API. For example, [{“type”: “koji_build”, “item”: “xscreensaver-5.37-3.fc27”}]. Use this for requesting decisions on multiple subjects at once. If used subject_type and subject_identifier are ignored.',
         },
@@ -348,7 +348,7 @@ const RootQuery = new GraphQLObjectType({
             'A list of waiver ids that will be ignored when making the decision.',
         },
         rules: {
-          type: new GraphQLList(GreenWaiveWaiverRuleInputType),
+          type: new GraphQLList(GreenwaveWaiverRuleInputType),
           description:
             'A list of dictionaries containing the ‘type’ and ‘test_case_name’ of an individual rule used to specify on-demand policy. For example, [{“type”:”PassingTestCaseRule”, “test_case_name”:”dist.abicheck”}, {“type”:”RemoteRule”}]. Do not use this parameter along with decision_context.',
         },
@@ -359,7 +359,7 @@ const RootQuery = new GraphQLObjectType({
         }
         const postQuery = { ...args };
         postQuery.verbose = true;
-        log('Query greenwaive for decision: %o', postQuery);
+        log('Query greenwave for decision: %o', postQuery);
         return axios
           .post(greenwave_cfg.decision.api_url.toString(), postQuery)
           .then((x) => x.data);

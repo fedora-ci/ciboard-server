@@ -280,7 +280,7 @@ export const known_types = {
   // XXX: ???
   'copr-build': 'component',
   // XXX: ???
-  'productmd-compose': 'compose.aid',
+  'productmd-compose': 'payload.compose_id',
 };
 
 export type TKnownType = keyof typeof known_types;
