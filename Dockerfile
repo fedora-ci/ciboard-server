@@ -12,9 +12,12 @@ RUN ["bash","-c", "--", "npm run build"]
 FROM registry.access.redhat.com/ubi8/nodejs-14
 ARG ADDPKGS=""
 ARG NPMLOCATION="open"
+ARG ANCHORS=""
 USER root
 RUN yum install -y "krb5-workstation" $ADDPKGS && \
     yum clean all -y
+COPY Dockerfile $ANCHORS "$HOME/"
+RUN if [ -n "${ANCHORS}" ]; then echo "Add anchors ${ANCHORS}"; trust anchor --store "${HOME}/${ANCHORS}"; fi
 USER 1001
 COPY "src" "$HOME/src/"
 COPY "assets" "$HOME/assets/"

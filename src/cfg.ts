@@ -205,6 +205,7 @@ export interface Cfg {
   };
   sst: {
     url: string;
+    results: string;
   };
   db: {
     /**

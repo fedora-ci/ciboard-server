@@ -1,7 +1,7 @@
 /*
  * This file is part of ciboard-server
 
- * Copyright (c) 2021 Andrei Stepanov <astepano@redhat.com>
+ * Copyright (c) 2021, 2022 Andrei Stepanov <astepano@redhat.com>
  * 
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -66,6 +66,8 @@ import {
   GreenwaveDecisionType,
   GreenwaveSubjectTypesType,
 } from './greenwave_types';
+
+import { SSTInfoType, SSTListType, SSTResultsType } from './sst_types';
 
 import { ArtifactsType } from './db_types';
 
@@ -156,6 +158,73 @@ const RootQuery = new GraphQLObjectType({
       type: GraphQLString,
       resolve() {
         return 'pong';
+      },
+    },
+    /**
+     *  Subsystem teams (SST)
+     */
+    sst_list: {
+      type: SSTListType,
+      resolve() {
+        const url = new URL(cfg.sst.results, cfg.sst.url);
+        return axios.get(url.toString()).then((response) =>
+          response.data.map((sst: SSTInfoType) => {
+            const releases = (sst.releases || []).map((rel) => rel.name);
+            const { name, display_name } = sst;
+            return { name, display_name, releases };
+          })
+        );
+      },
+    },
+    sst_results: {
+      type: SSTResultsType,
+      args: {
+        sst_name: { type: new GraphQLNonNull(GraphQLString) },
+        release: { type: new GraphQLNonNull(GraphQLString) },
+      },
+      resolve(_parentValue, { sst_name, release }) {
+        const results_json_url = new URL(
+          `/results/${sst_name}.${release}.json`,
+          cfg.sst.url
+        ).toString();
+        return axios.get(results_json_url).then((response) => {
+          const results = response.data.data;
+          const reply = _.map(results, (result) => {
+            const transformed: { [key: string]: any } = {
+              nvr: result.nvr,
+              assignee: result.assignee,
+              artifact: {
+                id: result.aid,
+                url: result.aid_link,
+              },
+              testcase: {
+                namespace: result.namespace,
+                type: result.type,
+                category: result.category,
+              },
+              tag: result.tag,
+              time: result.time,
+              status: result.status,
+              metadata_url: result.nvr_link,
+            };
+            if (result.rebuild_link && result.rebuild_link !== 'X')
+              transformed.rebuild_url = result.rebuild_link;
+            if (result.log_link && result.log_link !== 'X') {
+              if (Array.isArray(result.log_link))
+                transformed.log_urls = result.log_link;
+              else transformed.log_urls = [result.log_link];
+            }
+            if (result.el8_gating_bug && result.el8_gating_bug !== 'X')
+              transformed.gating_bug = {
+                text: result.el8_gating_bug,
+                url: result.el8_gating_bug_link,
+              };
+            if (result.yaml && result.yaml !== 'missing')
+              transformed.gating_yaml_url = result.yaml_link;
+            return transformed;
+          });
+          return reply as SSTResultsType;
+        });
       },
     },
     /**
@@ -656,7 +725,7 @@ const RootQuery = new GraphQLObjectType({
         };
       },
     },
-    sst_list: {
+    db_sst_list: {
       args: {
         product_id: {
           type: GraphQLInt,

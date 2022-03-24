@@ -28,7 +28,8 @@ waiverdb:
 datagrepper:
   url: ~
 sst:
-  url: ~
+  url: 'https://sst.osci.redhat.com'
+  results: 'results/sstlist.json'
 db:
   # http://mongodb.github.io/node-mongodb-native/3.5/api/MongoClient.html
   url: ~
@@ -91,6 +92,7 @@ env_to_config_map:
     url: SRV_DATAGREPPER_URL
   sst:
     url: SRV_SST_URL
+    results: SRV_SST_RESULTS
   db:
     url: SRV_DB_URL
     limit_default: SRV_DB_LIMIT_DEFAULT

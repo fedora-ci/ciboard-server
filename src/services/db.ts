@@ -41,7 +41,45 @@ const options: MongoClientOptions = _.pickBy(
 
 log(' [i] mongo client options: %O', options);
 
-export const client_promise = new MongoClient(cfg.db.url, options).connect();
+async function attemptAsync<T>(
+  func: (...args: any[]) => Promise<T>,
+  ...args: any[]
+): Promise<Error | T> {
+  try {
+    return await func(...args);
+  } catch (e) {
+    if (_.isError(e)) {
+      return e;
+    }
+    throw e;
+  }
+}
+
+const mkClient = (): Promise<MongoClient> => {
+  var mongoClient;
+  try {
+    mongoClient = new MongoClient(cfg.db.url, options);
+  } catch (e) {
+    console.log('Failed to create mongo configuration. Check options.');
+    console.dir(e);
+    process.exit(1);
+  }
+  return mongoClient.connect();
+};
+
+const clientPromise: Promise<Error | MongoClient> =
+  attemptAsync<MongoClient>(mkClient);
+
+const getClient = async (
+  clientPromise: Promise<Error | MongoClient>
+): Promise<MongoClient> => {
+  const client = await clientPromise;
+  if (_.isError(client)) {
+    console.dir(clientPromise);
+    process.exit(1);
+  }
+  return client;
+};
 
 /** For reduced query */
 const project = {
@@ -78,7 +116,7 @@ const mk_filter = (
 };
 
 (async function test() {
-  const client = await client_promise;
+  const client = await getClient(clientPromise);
   const database = client.db('ci-messages');
   const collection = database.collection('artifacts');
   const cursor = collection.find().sort({ _id: -1 }).limit(1);
@@ -155,7 +193,11 @@ export const mk_cursor = async (args: QueryOptions) => {
     dbFieldValues3,
     dbFieldValuesComponentMapping1,
   } = args;
-  const client = await client_promise;
+  if (_.isError(clientPromise)) {
+    console.dir(clientPromise);
+    process.exit(1);
+  }
+  const client = await getClient(clientPromise);
   const database = client.db(cfg.db.db_name);
   const collection = database.collection(cfg.db.collection_name);
   /** look-up by name -> nvr, nsvc, ... */
@@ -254,7 +296,7 @@ export const mk_cursor = async (args: QueryOptions) => {
 };
 
 export const db_list_sst = async (product_id: number) => {
-  const client = await client_promise;
+  const client = await getClient(clientPromise);
   const database = client.db(cfg.db.db_name);
   const collection = database.collection(cfg.db.collection_name_components);
   log('List SST names');
