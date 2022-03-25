@@ -46,9 +46,9 @@ const {
 
 import {
   WaiverDBInfoType,
-  WaiverDBConfigType,
   WaiverDBWaiverType,
   WaiverDBWaiversType,
+  WaiverDBPermissionsType,
 } from './waiverdb_types';
 
 import {
@@ -241,22 +241,15 @@ const RootQuery = new GraphQLObjectType({
           .then((x) => x.data);
       },
     },
-    waiver_db_config: {
-      type: WaiverDBConfigType,
+    waiver_db_permissions: {
+      type: WaiverDBPermissionsType,
       resolve() {
         if (!waiverdb_cfg?.url) {
           throw new Error('Waiverdb is not configured.');
         }
-        return axios.get(waiverdb_cfg.config.api_url.toString()).then((x) => {
-          const { superusers } = x.data;
-          const permission_mapping = _.values(
-            _.mapValues(x.data.permission_mapping, (value, key) => {
-              value['testcase_regex'] = key;
-              return value;
-            })
-          );
-          return { superusers, permission_mapping };
-        });
+        return axios
+          .get(waiverdb_cfg.permissions.api_url.toString())
+          .then((response) => response.data);
       },
     },
     waiver_db_waivers: {
@@ -297,7 +290,7 @@ const RootQuery = new GraphQLObjectType({
          */
         include_obsolete: { type: GraphQLBoolean },
       },
-      resolve(parentValue, args) {
+      resolve(_parentValue, args) {
         if (!waiverdb_cfg?.url) {
           throw new Error('Waiverdb is not configured.');
         }

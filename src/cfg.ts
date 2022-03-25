@@ -326,8 +326,8 @@ if (cfg.waiverdb?.url) {
     about: {
       api_url: new URL('/api/v1.0/about', cfg.waiverdb.url),
     },
-    config: {
-      api_url: new URL('/api/v1.0/config', cfg.waiverdb.url),
+    permissions: {
+      api_url: new URL('/api/v1.0/permissions', cfg.waiverdb.url),
     },
   };
 }

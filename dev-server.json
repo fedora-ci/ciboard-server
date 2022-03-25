@@ -2,5 +2,5 @@
   "watch": ["src"],
   "ext": ".ts,.js",
   "ignore": [],
-  "exec": "DEBUG=${DEBUG:-osci:*} source ./env.sh && ts-node ./src/server.ts | ./node_modules/.bin/pino-pretty"
+  "exec": "DEBUG=${DEBUG:-osci:*} source ./env-devel.sh && ts-node ./src/server.ts | ./node_modules/.bin/pino-pretty"
 }

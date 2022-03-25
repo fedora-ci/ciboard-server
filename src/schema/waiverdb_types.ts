@@ -45,15 +45,21 @@ export const WaiverDBConfigPermissionType = new GraphQLObjectType({
   }),
 });
 
-export const WaiverDBConfigType = new GraphQLObjectType({
-  name: 'WaiverDBConfigType',
+const WaiverDBPermissionItemType = new GraphQLObjectType({
+  name: 'WaiverDBPermissionsItemType',
   fields: () => ({
-    superusers: { type: new GraphQLList(GraphQLString) },
-    permission_mapping: {
-      type: new GraphQLList(WaiverDBConfigPermissionType),
-    },
+    name: { type: GraphQLString },
+    description: { type: GraphQLString },
+    maintainers: { type: new GraphQLList(GraphQLString) },
+    testcases: { type: new GraphQLList(GraphQLString) },
+    users: { type: new GraphQLList(GraphQLString) },
+    groups: { type: new GraphQLList(GraphQLString) },
   }),
 });
+
+export const WaiverDBPermissionsType = new GraphQLList(
+  WaiverDBPermissionItemType
+);
 
 /**
  * https://waiverdb/api/v1.0/waivers/
