@@ -1,7 +1,7 @@
 /*
  * This file is part of ciboard-server
 
- * Copyright (c) 2021 Andrei Stepanov <astepano@redhat.com>
+ * Copyright (c) 2021, 2022 Andrei Stepanov <astepano@redhat.com>
  * 
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -34,12 +34,16 @@ import logger from './pino_logger';
 const log = debug('osci:server');
 const cfg = getcfg();
 
-var cookieSessionCfg = {
+var cookieSessionCfg: CookieSessionInterfaces.CookieSessionOptions = {
   /**
    * 7 days
    */
   maxAge: 7 * 24 * 60 * 60 * 1000,
   keys: [cfg.cookieKey],
+  httpOnly: false,
+  sameSite: true,
+  /** Allow store cookies over HTTP. Useful to debug auth. XXX: This doesn't work. Need to add HTTPS. */
+  // secure: false,
 };
 
 const app = express();
@@ -79,6 +83,7 @@ app.use(cookieSession(cookieSessionCfg));
 app.set('etag', false);
 
 if (cfg.authz?.enabled && cfg.authz.use_saml) {
+  log(' [i] passport js init');
   app.use(passport.initialize());
   /**
    * Set value req.user object to contain the deserialized identity of the user
@@ -86,6 +91,8 @@ if (cfg.authz?.enabled && cfg.authz.use_saml) {
   app.use(passport.session());
   import('./services/cfgPassport');
   import('./routes/authRoutes').then(({ default: run }) => run(app));
+} else {
+  log(' [i] skip passport init: not configured');
 }
 
 /**

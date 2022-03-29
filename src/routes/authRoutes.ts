@@ -1,7 +1,7 @@
 /*
  * This file is part of ciboard-server
 
- * Copyright (c) 2021 Andrei Stepanov <astepano@redhat.com>
+ * Copyright (c) 2021, 2022 Andrei Stepanov <astepano@redhat.com>
  * 
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -18,16 +18,18 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+import _ from 'lodash';
+import debug from 'debug';
 import passport from 'passport';
 import bodyParser from 'body-parser';
+import { Express } from 'express';
 
+import printify from '../services/printify';
 import { getcfg } from '../cfg';
 import { samlStrategy } from '../services/cfgPassport';
-import printify from '../services/printify';
-import { Express } from 'express';
-import _ from 'lodash';
 
 const cfg = getcfg();
+const log = debug('osci:authRoutes');
 
 export default function (app: Express) {
   app.get('/debug/auth', function (req, res) {
@@ -82,7 +84,7 @@ export default function (app: Express) {
     /**
      * This will be called after passport.authenticate('saml')
      */
-    (req, res) => {
+    (_req, res) => {
       res.redirect('/');
     }
   );
@@ -96,6 +98,7 @@ export default function (app: Express) {
   });
 
   app.get('/current_user', (req, res) => {
+    log(' [i] get current user info: %O', req.user);
     res.send(req.user);
   });
 }
