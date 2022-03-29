@@ -40,8 +40,8 @@ var cookieSessionCfg: CookieSessionInterfaces.CookieSessionOptions = {
    */
   maxAge: 7 * 24 * 60 * 60 * 1000,
   keys: [cfg.cookieKey],
-  httpOnly: false,
-  sameSite: true,
+  // httpOnly: false,
+  // sameSite: true,
   /** Allow store cookies over HTTP. Useful to debug auth. XXX: This doesn't work. Need to add HTTPS. */
   // secure: false,
 };
