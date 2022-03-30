@@ -22,6 +22,7 @@ import cors from 'cors';
 import debug from 'debug';
 import express from 'express';
 import passport from 'passport';
+
 /**
  * express midleware to parse req.body in POST.
  */
@@ -36,14 +37,11 @@ const cfg = getcfg();
 
 var cookieSessionCfg: CookieSessionInterfaces.CookieSessionOptions = {
   /**
-   * 7 days
+   * 2 days
    */
-  maxAge: 7 * 24 * 60 * 60 * 1000,
-  keys: [cfg.cookieKey],
-  // httpOnly: false,
-  // sameSite: true,
+  maxAge: 2 * 24 * 60 * 60 * 1000,
   /** Allow store cookies over HTTP. Useful to debug auth. XXX: This doesn't work. Need to add HTTPS. */
-  // secure: false,
+  keys: [cfg.cookieKey],
 };
 
 const app = express();

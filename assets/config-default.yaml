@@ -1,6 +1,6 @@
 ---
 port: 5000
-cookie_key: ~
+cookieKey: ~
 authz:
   enabled: false
   use_saml: false
@@ -72,7 +72,7 @@ krb:
 
 env_to_config_map:
   port: SRV_PORT
-  cookie_key: SRV_COOKIE_KEY
+  cookieKey: SRV_COOKIE_KEY
   authz:
     enabled: SRV_AUTH_ENABLED
     use_saml: SRV_AUTH_USE_SAML

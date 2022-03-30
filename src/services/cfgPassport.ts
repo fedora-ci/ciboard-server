@@ -31,7 +31,7 @@ const userSerializer: SerializeUserType = (_req, user, done) => {
   /**
    * This function is called on siging to get User as it knows express
    */
-  log(' [i] serialize user: %O, %O', user, _req);
+  log(' [i] serialize user: %O', user);
   done(null, user);
 };
 passport.serializeUser(userSerializer);
