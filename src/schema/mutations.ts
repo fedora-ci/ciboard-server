@@ -24,6 +24,8 @@ import * as graphql from 'graphql';
 import { waiverdb_cfg } from '../cfg';
 import { WaiverDBWaiverType } from './waiverdb_types';
 import { axios_krb_waiverdb } from '../services/axios';
+import _ from 'lodash';
+import axios from 'axios';
 
 const log = debug('osci:mutations');
 
@@ -49,7 +51,7 @@ const mutation = new GraphQLObjectType({
           type: new GraphQLNonNull(GraphQLString),
         },
       },
-      resolve(parentValue, payload, request) {
+      async resolve(parentValue, payload, request) {
         let response;
         const { user } = request;
         if (!user || !user.displayName) {
@@ -84,7 +86,15 @@ const mutation = new GraphQLObjectType({
         /**
          * .then() - only on success. On errors will be returned complete response object with {errors, data}
          */
-        return response.then((x) => x.data);
+        return response.then(
+          (x) => x.data,
+          (x) => {
+            if (axios.isAxiosError(x) && x.response?.data.message) {
+              x.message = `${x.message} (${x.response.data.message})`;
+            }
+            return x;
+          }
+        );
       },
     },
   },
