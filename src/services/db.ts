@@ -169,7 +169,6 @@ interface MongoQuery {
     {"type":"brew-build", "nvr":{"$in":[/^scap/, /^gdm/, /^bash/]}}
     {aid:1, nvr:1}
 */
-
 export const mk_cursor = async (args: QueryOptions) => {
   const {
     atype,
@@ -215,10 +214,10 @@ export const mk_cursor = async (args: QueryOptions) => {
     aid: aid,
   };
   if (componentMappingProductId) {
-    match['gate_tag_name'] = { $gt: '' };
+    match['payload.gate_tag_name'] = { $gt: '' };
   }
   if (skipScratch) {
-    match['scratch'] = false;
+    match['payload.scratch'] = false;
   }
   for (const args of [
     [dbFieldName1, dbFieldValues1, valuesAreRegex1],
