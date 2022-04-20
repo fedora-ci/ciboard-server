@@ -31,6 +31,15 @@ import { samlStrategy } from '../services/cfgPassport';
 const cfg = getcfg();
 const log = debug('osci:authRoutes');
 
+function redirectBack(req, res) {
+  const redirectUrl = req.cookies?.auth_redirect;
+  if (redirectUrl) {
+    res.clearCookie('auth_redirect');
+    return res.redirect(redirectUrl);
+  }
+  return res.redirect('/');
+}
+
 export default function (app: Express) {
   app.get('/debug/auth', function (req, res) {
     /**
@@ -84,17 +93,11 @@ export default function (app: Express) {
     /**
      * This will be called after passport.authenticate('saml')
      */
-    (_req, res) => {
-      res.redirect('/');
-    }
+    redirectBack,
   );
 
   app.get('/logout', function (req, res) {
-    req.logout();
-    /*
-     * TODO: invalidate session on IP
-     */
-    res.redirect('/');
+    redirectBack(req, res);
   });
 
   app.get('/current_user', (req, res) => {
