@@ -22,7 +22,7 @@ import _ from 'lodash';
 import debug from 'debug';
 import passport from 'passport';
 import bodyParser from 'body-parser';
-import { Express } from 'express';
+import { Express, Request, Response } from 'express';
 
 import printify from '../services/printify';
 import { getcfg } from '../cfg';
@@ -31,14 +31,14 @@ import { samlStrategy } from '../services/cfgPassport';
 const cfg = getcfg();
 const log = debug('osci:authRoutes');
 
-function redirectBack(req, res) {
+const redirectBack = (req: Request, res: Response): void => {
   const redirectUrl = req.cookies?.auth_redirect;
   if (redirectUrl) {
     res.clearCookie('auth_redirect');
     return res.redirect(redirectUrl);
   }
   return res.redirect('/');
-}
+};
 
 export default function (app: Express) {
   app.get('/debug/auth', function (req, res) {
@@ -93,7 +93,7 @@ export default function (app: Express) {
     /**
      * This will be called after passport.authenticate('saml')
      */
-    redirectBack,
+    redirectBack
   );
 
   app.get('/logout', function (req, res) {
