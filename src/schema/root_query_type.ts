@@ -23,8 +23,10 @@ import zlib from 'zlib';
 import util from 'util';
 import axios from 'axios';
 import debug from 'debug';
+import assert from 'assert';
 import { URL } from 'url';
 import * as graphql from 'graphql';
+import GraphQLJSON from 'graphql-type-json';
 
 import { getcfg, greenwave_cfg, waiverdb_cfg } from '../cfg';
 import { mk_cursor, QueryOptions, db_list_sst } from '../services/db';
@@ -67,7 +69,7 @@ import {
   GreenwaveSubjectTypesType,
 } from './greenwave_types';
 
-import { SSTInfoType, SSTListType, SSTResultsType } from './sst_types';
+import { SSTInfoType, SSTListType } from './sst_types';
 
 import { ArtifactsType } from './db_types';
 
@@ -177,54 +179,22 @@ const RootQuery = new GraphQLObjectType({
       },
     },
     sst_results: {
-      type: SSTResultsType,
+      /* do not hardcode exact structure of reply from sst backend, do any interpretation on backend */
+      type: new GraphQLList(GraphQLJSON),
       args: {
         sst_name: { type: new GraphQLNonNull(GraphQLString) },
         release: { type: new GraphQLNonNull(GraphQLString) },
       },
-      resolve(_parentValue, { sst_name, release }) {
+      async resolve(_parentValue, { sst_name, release }) {
         const results_json_url = new URL(
           `/results/${sst_name}.${release}.json`,
           cfg.sst.url
         ).toString();
-        return axios.get(results_json_url).then((response) => {
-          const results = response.data.data;
-          const reply = _.map(results, (result) => {
-            const transformed: { [key: string]: any } = {
-              nvr: result.nvr,
-              assignee: result.assignee,
-              artifact: {
-                id: result.aid,
-                url: result.aid_link,
-              },
-              testcase: {
-                namespace: result.namespace,
-                type: result.type,
-                category: result.category,
-              },
-              tag: result.tag,
-              time: result.time,
-              status: result.status,
-              metadata_url: result.nvr_link,
-            };
-            if (result.rebuild_link && result.rebuild_link !== 'X')
-              transformed.rebuild_url = result.rebuild_link;
-            if (result.log_link && result.log_link !== 'X') {
-              if (Array.isArray(result.log_link))
-                transformed.log_urls = result.log_link;
-              else transformed.log_urls = [result.log_link];
-            }
-            if (result.el8_gating_bug && result.el8_gating_bug !== 'X')
-              transformed.gating_bug = {
-                text: result.el8_gating_bug,
-                url: result.el8_gating_bug_link,
-              };
-            if (result.yaml && result.yaml !== 'missing')
-              transformed.gating_yaml_url = result.yaml_link;
-            return transformed;
-          });
-          return reply as SSTResultsType;
-        });
+        const response = await axios.get(results_json_url);
+        /* axios.get can throw exception, if we are here then no exception */
+        const data = response.data?.data;
+        assert.ok(_.isArray(data), 'Exptected array reply');
+        return data as typeof GraphQLJSON[];
       },
     },
     /**

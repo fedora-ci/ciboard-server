@@ -22,12 +22,11 @@ import _ from 'lodash';
 import process from 'process';
 import debug from 'debug';
 import {
-  AggregationCursor,
   Document,
-  FindCursor,
   MongoClient,
-  MongoClientOptions,
   SortDirection,
+  MongoClientOptions,
+  AggregationCursor,
 } from 'mongodb';
 import { getcfg, TKnownType, known_types } from '../cfg';
 
