@@ -200,7 +200,7 @@ export const mk_cursor = async (args: QueryOptions) => {
   const collection = database.collection(cfg.db.collection_name);
   /** look-up by name -> nvr, nsvc, ... */
   const name = known_types[atype];
-  var numericOrdering = name === 'nvr' || name === 'nsvc';
+  var numericOrdering = name === 'payload.nvr' || name === 'payload.nsvc';
   var aid_direction: SortDirection = -1;
   var aid;
   if (aid_offset) {
@@ -279,13 +279,17 @@ export const mk_cursor = async (args: QueryOptions) => {
       $project: project,
     });
   }
-  log('Make aggregation pipeline: %s', JSON.stringify(aggregate_pipeline));
+  log(
+    'Make aggregation pipeline: %s, numericOrdering: %s',
+    JSON.stringify(aggregate_pipeline),
+    numericOrdering
+  );
   const cursor: AggregationCursor<Document> = collection.aggregate(
     aggregate_pipeline,
     {
       collation: {
         locale: 'en_US',
-        numericOrdering: numericOrdering,
+        numericOrdering,
       },
     }
   );
