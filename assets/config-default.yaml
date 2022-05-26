@@ -36,6 +36,7 @@ db:
   limit_default: 20
   db_name: 'ci-messages'
   collection_name: 'artifacts'
+  collection_name_components: 'components_mapping'
   options:
     tlsCAFile: ~
 koji_fp:
@@ -98,6 +99,7 @@ env_to_config_map:
     limit_default: SRV_DB_LIMIT_DEFAULT
     db_name: SRV_DB_DB_NAME
     collection_name: SRV_DB_COLLECTION_NAME
+    collection_name_components: SRV_DB_COLLECTION_NAME_COMPONENTS
     options:
       tlsCAFile: SRV_DB_OPTIONS_TLSCAFILE
   koji_fp:

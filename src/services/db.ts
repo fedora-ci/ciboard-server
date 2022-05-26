@@ -242,7 +242,7 @@ export const mk_cursor = async (args: QueryOptions) => {
     aggregate_pipeline.push({
       $lookup: {
         from: 'components_mapping',
-        localField: 'component',
+        localField: 'payload.component',
         foreignField: 'component_name',
         as: 'component_mapping',
       },
@@ -301,7 +301,6 @@ export const db_list_sst = async (product_id: number) => {
   const client = await getClient(clientPromise);
   const database = client.db(cfg.db.db_name);
   const collection = database.collection(cfg.db.collection_name_components);
-  log('List SST names');
   var sst_names;
   if (_.isNumber(product_id)) {
     sst_names = await collection.distinct('sst_team_name', {
