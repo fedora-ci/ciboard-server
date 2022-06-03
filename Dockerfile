@@ -1,14 +1,3 @@
-FROM registry.access.redhat.com/ubi8/nodejs-14 as frontend
-ARG FRONTEND_REPO="https://github.com/fedora-ci/ciboard.git"
-ARG FRONTEND_BRANCH="main"
-ARG NPMLOCATION="open"
-RUN git clone --branch "$FRONTEND_BRANCH" "$FRONTEND_REPO"
-WORKDIR "ciboard"
-RUN echo "Use location: $NPMLOCATION"
-COPY ".npmrcs/$NPMLOCATION" ".npmrc"
-RUN ["bash","-c", "--", "npm install"]
-RUN ["bash","-c", "--", "npm run build"]
-
 FROM registry.access.redhat.com/ubi8/nodejs-14
 ARG ADDPKGS=""
 ARG NPMLOCATION="open"
@@ -28,10 +17,6 @@ RUN echo "Use location: $NPMLOCATION"
 COPY ".npmrcs/$NPMLOCATION" ".npmrc"
 RUN ["bash","-c", "--", "npm install"]
 RUN ["bash","-c", "--", "npm run build"]
-
-# Acquire the freshest snapshot of the dashboard
-COPY --from=frontend "/opt/app-root/src/ciboard/build" "$HOME/frontend/"
-
 # Provide defaults for an executing container
 # Later, helm-chart will set 'NPM_RUN' variable to 'start:server'
 CMD ["bash","-c", "--", "$STI_SCRIPTS_PATH/run"]
