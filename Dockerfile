@@ -5,8 +5,8 @@ ARG ANCHORS=""
 USER root
 RUN yum install -y "krb5-workstation" $ADDPKGS && \
     yum clean all -y
-COPY Dockerfile $ANCHORS "$HOME/"
-RUN if [ -n "${ANCHORS}" ]; then echo "Add anchors ${ANCHORS}"; trust anchor --store "${HOME}/${ANCHORS}"; fi
+COPY rhcachain.crt "$HOME/"
+RUN trust anchor --store "${HOME}/rhcachain.crt"
 # OSCI-2964
 RUN sed -i -e '/dns_canonicalize_hostname/d;/^\[libdefaults\]/a\ \ dns_canonicalize_hostname = fallback' /etc/krb5.conf
 COPY "src" "$HOME/src/"
