@@ -1,7 +1,6 @@
 FROM registry.access.redhat.com/ubi8/nodejs-14
 ARG ADDPKGS=""
 ARG NPMLOCATION="open"
-ARG ANCHORS=""
 USER root
 RUN yum install -y "krb5-workstation" $ADDPKGS && \
     yum clean all -y
