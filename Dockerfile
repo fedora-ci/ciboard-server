@@ -9,12 +9,14 @@ COPY Dockerfile $ANCHORS "$HOME/"
 RUN if [ -n "${ANCHORS}" ]; then echo "Add anchors ${ANCHORS}"; trust anchor --store "${HOME}/${ANCHORS}"; fi
 # OSCI-2964
 RUN sed -i -e '/dns_canonicalize_hostname/d;/^\[libdefaults\]/a\ \ dns_canonicalize_hostname = fallback' /etc/krb5.conf
-USER 1001
 COPY "src" "$HOME/src/"
 COPY "assets" "$HOME/assets/"
 COPY "package.json" "package-lock.json" "env.sh" "tsconfig.json" "$HOME/"
 RUN echo "Use location: $NPMLOCATION"
 COPY ".npmrcs/$NPMLOCATION" ".npmrc"
+
+# USER doesn't impact on COPY
+USER 1001
 RUN ["bash","-c", "--", "npm install"]
 RUN ["bash","-c", "--", "npm run build"]
 # Provide defaults for an executing container
