@@ -1,0 +1,10 @@
+# Keep updated with the latest changes in the redhat-actions repositories by using GitHub’s dependabot.
+# Monitor changes to any of the GitHub Actions that we use
+# When GitHub detects that one of your actions has an update, dependabot makes a pull request in your repository to update the action version.
+
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+    interval: "daily"
