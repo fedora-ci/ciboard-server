@@ -12,7 +12,7 @@ jobs:
 
   login-build-push:
     env:
-        IMAGE_REGISTRY_GITHUB: ghcr.io/andrei-stepanov/ciboard-server
+        IMAGE_REGISTRY_GITHUB: ghcr.io/fedora-ci/ciboard-server
         IMAGE_REGISTRY_QUAY: quay.io/fedoraci/ciboard-server
         USER_QUAY: fedoraci+ciboard_github_ci
     name: Build and push image
