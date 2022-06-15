@@ -84,7 +84,7 @@ env_to_config_map:
       providerName: SRV_SAML_PROVIDERNAME
       cert: SRV_SAML_CERT
       signatureAlgorithm: SRV_SAML_SIGNATUREALGORITHM
-      privateCert: SRV_SAML_PRIVATECERT
+      privateKey: SRV_SAML_PRIVATEKEY
   greenwave:
     url: SRV_GREENWAVE_URL
   waiverdb:
