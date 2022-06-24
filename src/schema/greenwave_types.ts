@@ -20,8 +20,9 @@
 
 import * as graphql from 'graphql';
 import debug from 'debug';
-import { getOSVersionFromNvr } from '../services/misc';
+import { getOSVersionFromNvr, getOSVersionFromTag } from '../services/misc';
 import { GraphQLJSON } from 'graphql-type-json';
+import _ from 'lodash';
 
 const log = debug('osci:greenwave_types');
 const {
@@ -109,7 +110,7 @@ export const GreenwaveSubjectTypeType = new GraphQLObjectType({
               }),
             },
           },
-        })
+        }),
       ),
     },
     supports_remote_rule: {
@@ -154,7 +155,7 @@ export const GreenwavePolicyType = new GraphQLObjectType({
             scenario: { type: GraphQLString },
             test_case_name: { type: GraphQLString },
           },
-        })
+        }),
       ),
     },
   }),
@@ -177,8 +178,20 @@ export const greenwave = {
       'redhat-module': 'osci_compose_gate_modules',
       'redhat-container': 'cvp_default',
     },
-    product_version: (nvr: string, artifactType: string) => {
-      const rhel_version = getOSVersionFromNvr(nvr, artifactType);
+    product_version: (
+      nvr: string,
+      gate_tag_name: string | undefined,
+      artifactType: string,
+    ) => {
+      const rhel_version_from_tag = getOSVersionFromTag(gate_tag_name);
+      const rhel_version_from_nvr = getOSVersionFromNvr(nvr, artifactType);
+      const rhel_version = _.chain([
+        rhel_version_from_tag,
+        rhel_version_from_nvr,
+      ])
+        .compact()
+        .first()
+        .value();
       switch (artifactType) {
         case 'brew-build':
           return `rhel-${rhel_version}`;

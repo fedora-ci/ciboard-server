@@ -40,13 +40,31 @@ export const getReleaseFromNvr = (nvr: string): string => {
   return nvr.substring(cut_from_left);
 };
 
+export const getOSVersionFromTag = (
+  tag: string | undefined,
+): string | undefined => {
+  if (_.isNil(tag)) {
+    return undefined;
+  }
+  /*
+   * Possible tags:
+   * /^(supp-)?rhel-[89]\.\d+\.\d+(-alpha)?(-beta)?(-z)?(-llvm-toolset|-go-toolset|-rust-toolset|.+-stack)?-gate$/
+   * /^(advanced-virt-[\w\.]+-)?(rhel-[89]\.\d+\.\d+(-alpha)?(-beta)?(-z)?-modules-gate)$/
+   */
+  const match = tag.match(/rhel-(\d+)\./i);
+  if (match == null) {
+    return undefined;
+  }
+  return match[1];
+};
+
 export const getOSVersionFromNvr = (
   nvr: string,
-  artifactType: string
+  artifactType: string,
 ): string | undefined => {
   /**
    * This is not realiable.
-   * From discussion with dcantrell@: no strict mapping between koji-tag/taget <-> dist-tag
+   * From discussion with dcantrell@: no strict mapping between koji-tag/target <-> dist-tag
    * Return first number from release
    * Knowns releases:
    * Look for 'el', 'fc' prefix:

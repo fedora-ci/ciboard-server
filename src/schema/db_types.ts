@@ -426,7 +426,7 @@ export const ArtifactType = new GraphQLObjectType({
          * Split all states in groups by thread_id
          */
         const states_for_same_thread = _.values(
-          _.groupBy(states, 'kai_state.thread_id')
+          _.groupBy(states, 'kai_state.thread_id'),
         );
         /**
          * get the most recent state for each thread
@@ -436,8 +436,8 @@ export const ArtifactType = new GraphQLObjectType({
           _.flow(
             _.identity,
             _.partialRight(_.orderBy, 'kai_state.timestamp', 'desc'),
-            _.first
-          )
+            _.first,
+          ),
         );
         return recent_for_each_thread;
       },
@@ -448,7 +448,7 @@ export const ArtifactType = new GraphQLObjectType({
         log(
           'Getting greenwave decision for: %s type: %s',
           parentValue.aid,
-          parentValue.type
+          parentValue.type,
         );
         // https://www.graphql-tools.com/docs/schema-delegation/
         const isScratch = _.get(parentValue, 'payload.scratch', true);
@@ -458,12 +458,14 @@ export const ArtifactType = new GraphQLObjectType({
         var item = _.get(
           /* item: 'nvr', 'nsvc' */
           parentValue,
-          nameFieldForType(parentValue.type)
+          nameFieldForType(parentValue.type),
         );
         if (parentValue.type === 'redhat-module') {
           /* nsvc -> nvr */
           item = convertNsvcToNvr(item);
         }
+        const gate_tag_name: string | undefined =
+          parentValue?.payload?.gate_tag_name;
         return delegateToSchema({
           schema: schema,
           operation: 'query',
@@ -475,7 +477,8 @@ export const ArtifactType = new GraphQLObjectType({
               ],
             product_version: greenwave.decision.product_version(
               item,
-              parentValue.type
+              gate_tag_name,
+              parentValue.type,
             ),
             subject: [
               {
