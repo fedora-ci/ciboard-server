@@ -35,7 +35,7 @@ const cfg = getcfg();
 
 const options_default = {};
 const options: MongoClientOptions = _.pickBy(
-  _.defaultsDeep(cfg.db.options, options_default)
+  _.defaultsDeep(cfg.db.options, options_default),
 );
 
 log(' [i] mongo client options: %O', options);
@@ -70,7 +70,7 @@ const clientPromise: Promise<Error | MongoClient> =
   attemptAsync<MongoClient>(mkClient);
 
 const getClient = async (
-  clientPromise: Promise<Error | MongoClient>
+  clientPromise: Promise<Error | MongoClient>,
 ): Promise<MongoClient> => {
   const client = await clientPromise;
   if (_.isError(client)) {
@@ -90,14 +90,14 @@ const mk_filter = (
   atype: TKnownType | null,
   dbFieldName: string,
   dbFieldValues: any,
-  valuesAreRegex: boolean
+  valuesAreRegex: boolean,
 ) => {
   if (_.isArray(dbFieldValues) && _.size(dbFieldValues)) {
     log(
       'dbFieldName: %s, dbFieldValues: %s, valuesAreRegex: %s',
       dbFieldName,
       dbFieldValues,
-      valuesAreRegex
+      valuesAreRegex,
     );
     var field: string;
     if (dbFieldName) {
@@ -125,7 +125,7 @@ const mk_filter = (
     "Latest entry: {aid: '%s', type: '%s', updated: %s}",
     last['aid'],
     last['type'],
-    last['_updated']
+    last['_updated'],
   );
   await cursor.close();
 })().catch((...error) => {
@@ -200,7 +200,13 @@ export const mk_cursor = async (args: QueryOptions) => {
   const collection = database.collection(cfg.db.collection_name);
   /** look-up by name -> nvr, nsvc, ... */
   const name = known_types[atype];
-  var numericOrdering = name === 'payload.nvr' || name === 'payload.nsvc';
+  /*
+   * turn on numericOrdering to activate db-index
+   */
+  var numericOrdering = _.includes(
+    ['payload.nvr', 'payload.nsvc', 'aid'],
+    name,
+  );
   var aid_direction: SortDirection = -1;
   var aid;
   if (aid_offset) {
@@ -266,7 +272,7 @@ export const mk_cursor = async (args: QueryOptions) => {
         null,
         `component_mapping.${dbFieldNameComponentMapping1}`,
         dbFieldValuesComponentMapping1,
-        is_regex
+        is_regex,
       );
       _.assign(match, filter);
     }
@@ -282,7 +288,7 @@ export const mk_cursor = async (args: QueryOptions) => {
   log(
     'Make aggregation pipeline: %s, numericOrdering: %s',
     JSON.stringify(aggregate_pipeline),
-    numericOrdering
+    numericOrdering,
   );
   const cursor: AggregationCursor<Document> = collection.aggregate(
     aggregate_pipeline,
@@ -291,7 +297,7 @@ export const mk_cursor = async (args: QueryOptions) => {
         locale: 'en_US',
         numericOrdering,
       },
-    }
+    },
   );
   /** Remember to cursor.close(); */
   return cursor;
