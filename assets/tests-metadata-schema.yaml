@@ -1,0 +1,166 @@
+$id: tests-metadata-schema
+$schema: http://json-schema.org/draft-07/schema#
+
+description: Metadata associated with specific test-case name.
+  Initialy prosed at https://issues.redhat.com/browse/OSCI-2932
+
+properties:
+  testcase_name:
+    description: ResultsDB testcase. Adresses specific CI-system.
+      A CI or other testing system that would like to discover, stage and invoke tests for a test subject.
+      Takes priority over `testcase_name_regex`
+    examples:
+      - 'osci.brew-build./plans/tier1-internal.functional'
+      - 'osci.brew-build.installability.functional'
+    type: string
+  testcase_name_regex:
+    description: ResultsDB testcase regex.
+      https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions
+    examples:
+      - '^osci.brew-build\.\w+\.\w+$'
+    type: string
+  manual_run:
+    description: URL to start the CI pipeline.
+    examples:
+      - https://cyborg-jenkins.osci.redhat.com/job/build-group-trigger/build
+    type: string
+    format: uri
+  known_issues:
+    description:
+      Imagine that we have an outage and all test-compose tests fail. All RHEL developers
+      checking the CI Dashboard have to open the log and debug it or ask us for help.
+      With test-case related metadata, we could easily add "known issues" there and CI Dashboard
+      could present this to user next to failure. User would then see the test is affected by outage
+      or there is a known issue with a test we already track.
+    type: array
+    items:
+      description: Gives information about currect known issue
+      type: object
+      properties:
+        issue_info:
+          description: details about specific issue
+          type: string
+          examples:
+            - RHEL composes are blocked by https://issues.redhat.com/browse/RHELBLD-10255
+        issue_status:
+          description: reflects current status of the issue
+          type: string
+          examples:
+            - active
+          oneOf:
+            - active
+            - fixed
+            - irrelevant
+        issue_severity:
+          description: impact of this current issue on CI system
+          type: string
+          examples:
+            - normal
+          oneOf:
+            - blocker
+            - critical
+            - major
+            - normal
+            - minor
+      required:
+        - issue_info
+  depends_on:
+    description: List of CI-systems that this test depends on
+    type: array
+    items:
+      description: Reference to another CI-system
+      type: object
+      properties:
+        testcase_name:
+          description: ResultsDB testcase. Adresses specific CI-system.
+            A CI or other testing system that would like to discover, stage and invoke tests for a test subject.
+            Takes priority over `testcase_name_regex`
+        examples:
+          - 'osci.brew-build./plans/tier1-internal.functional'
+          - 'osci.brew-build.installability.functional'
+        type: string
+  contact:
+    description: 'Based on: https://pagure.io/fedora-ci/messages/blob/master/f/schemas/contact.yaml'
+    type: object
+    properties:
+      required:
+        - name
+        - team
+        - docs
+        - email
+      name:
+        description: A human readable name for the system.
+        examples:
+          - BaseOS CI
+          - OSCI Compose Gating Bot
+        type: string
+      team:
+        description: A human readable name of the team running the testing
+          or gating. This is useful for example to distinguish
+          multiple teams running on the same Jenkins instance.
+        examples:
+          - BaseOS QE
+          - Libvirt QE
+          - RTT
+          - OSCI
+        type: string
+      docs:
+        description: Link to documentation with details about the system.
+        examples:
+          - https://somewhere.com/user-documentation
+        type: string
+        format: uri
+      email:
+        description: Contact email address.
+        examples:
+          - osci@somewhere.com
+        type: string
+        format: email
+      url:
+        description: URL link to the system or system's web interface.
+        examples:
+          - https://jenkins-continuous-infra.apps.ci.centos.org
+        type: string
+        format: uri
+      irc:
+        description: IRC contact for help (prefix with '#' for channel).
+        examples:
+          - '#osci'
+        type: string
+      slack:
+        description: Slack contact for help (prefix with '#' for channel).
+        examples:
+          - '#aos-art'
+        type: string
+      version:
+        description: Version of the system.
+        examples:
+          - 1.2
+        type: string
+  updated_at:
+    description: Time test-info was generated. This can be useful to track when
+      metadata was updated for specific test-case.
+      This should be a string of UTC time in ISO 8601 format.
+    examples:
+      - '2018-09-14T18:50:26.143559Z'
+    type: string
+  updated_by:
+    description: User name who updated test-info.
+    examples:
+      - 'astepano'
+    type: string
+  version:
+    description: Version of the specification. Following semantic versioning
+      (https://semver.org/).
+    examples:
+      - 0.1.2
+    type: string
+
+required:
+  - contact
+  - updated_at
+  - updated_by
+  - version
+
+type: object
+# vim: noai:ts=2:sw=2 et
