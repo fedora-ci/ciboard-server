@@ -116,8 +116,8 @@ const mk_filter = (
 
 (async function test() {
   const client = await getClient(clientPromise);
-  const database = client.db('ci-messages');
-  const collection = database.collection('artifacts');
+  const database = client.db(cfg.db.db_name);
+  const collection = database.collection(cfg.db.collection_name);
   const cursor = collection.find().sort({ _id: -1 }).limit(1);
   const artifacts = await cursor.toArray();
   const last = artifacts[0];
