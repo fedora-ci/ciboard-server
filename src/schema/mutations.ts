@@ -26,6 +26,8 @@ import { WaiverDBWaiverType } from './waiverdb_types';
 import { axios_krb_waiverdb } from '../services/axios';
 import _ from 'lodash';
 import axios from 'axios';
+import GraphQLJSON from 'graphql-type-json';
+import { CISystemType } from './cisystem_types';
 
 const log = debug('osci:mutations');
 
@@ -35,6 +37,21 @@ const { GraphQLString, GraphQLBoolean, GraphQLNonNull, GraphQLObjectType } =
 const mutation = new GraphQLObjectType({
   name: 'Mutation',
   fields: {
+    cisystem_update: {
+      type: CISystemType,
+      args: {
+        id: {
+          type: graphql.GraphQLInt,
+          description:
+            'CI-system personal ID, used in dashboard-DB. If empty, create a new entry for CI-system..',
+        },
+        payload: {
+          type: new GraphQLNonNull(GraphQLJSON),
+          description: "CI-system info. If empty '{}': remove CI-system.",
+        },
+      },
+      async resolve(parentValue, payload, request) {},
+    },
     waiver_db_new: {
       type: WaiverDBWaiverType,
       args: {
@@ -57,7 +74,7 @@ const mutation = new GraphQLObjectType({
         if (!user || !user.displayName) {
           const comment = util.format(
             'User is not logged, when sending a waiver for: %s.',
-            payload.subject_identifier
+            payload.subject_identifier,
           );
           log(comment);
           return new Error(comment);
@@ -66,7 +83,7 @@ const mutation = new GraphQLObjectType({
           const comment = util.format(
             '%s: %s',
             user.displayName,
-            payload.comment
+            payload.comment,
           );
           /**
            * https://docs.pagure.org/waiverdb/admin-guide.html#waive-permission
@@ -93,7 +110,7 @@ const mutation = new GraphQLObjectType({
               x.message = `${x.message} (${x.response.data.message})`;
             }
             return x;
-          }
+          },
         );
       },
     },
