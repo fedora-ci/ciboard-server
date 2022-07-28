@@ -186,6 +186,12 @@ export const getcfg = _.once((): Cfg => {
   return new Config() as unknown as Cfg;
 });
 
+export type MbsInstance = 'cs' | 'fp' | 'rh';
+
+export interface MbsInstanceConfig {
+  url: string;
+}
+
 export interface Cfg {
   port: number;
   cookieKey: string;
@@ -252,10 +258,8 @@ export interface Cfg {
       useragent: string;
     };
   };
+  mbs: Partial<Record<MbsInstance, MbsInstanceConfig>>;
   distgit: {
-    rh: {
-      base_url: string;
-    };
     cs: {
       base_url: string;
       base_url_api: string;
@@ -263,6 +267,9 @@ export interface Cfg {
     fp: {
       base_url: string;
       base_url_api: string;
+    };
+    rh: {
+      base_url: string;
     };
   };
   krb: {

@@ -65,6 +65,13 @@ koji_brew:
   path: '/brewhub'
   headers:
     useragent: 'ciboard-server'
+mbs:
+  fp:
+    url: https://mbs.fedoraproject.org/module-build-service/2/
+  cs:
+    url: https://mbs.stream.rdu2.redhat.com/module-build-service/2/
+  rh:
+    url: ~
 distgit:
   fp:
     base_url: 'https://src.fedoraproject.org'
@@ -138,6 +145,13 @@ env_to_config_map:
     path: SRV_KOJI_BREW_PATH
     headers:
       useragent: SRV_KOJI_BREW_HEADERS_USERAGENT
+  mbs:
+    cs:
+      url: SRV_MBS_CS_URL
+    fp:
+      url: SRV_MBS_FP_URL
+    rh:
+      url: SRV_MBS_RH_URL
   distgit:
     rh:
       base_url: SRV_DISTGIT_RH_BASE_URL
