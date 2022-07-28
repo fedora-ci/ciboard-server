@@ -27,6 +27,7 @@ import assert from 'assert';
 import { URL } from 'url';
 import * as graphql from 'graphql';
 import GraphQLJSON from 'graphql-type-json';
+import { Document, Filter, ObjectId } from 'mongodb';
 
 import { getcfg, greenwave_cfg, waiverdb_cfg } from '../cfg';
 import {
@@ -37,12 +38,14 @@ import {
   Metadata,
 } from '../services/db';
 import { koji_query } from '../services/kojibrew';
+import * as mbs from '../services/mbs';
 
 const cfg = getcfg();
 const log = debug('osci:root_query_type');
 const zlib_inflate = util.promisify(zlib.inflate);
 
 const {
+  GraphQLID,
   GraphQLInt,
   GraphQLList,
   GraphQLString,
@@ -86,13 +89,12 @@ import {
   KojiBuildTagsType,
   KojiInstanceInputType,
 } from './koji_types';
-import { Document, Filter, ObjectId } from 'mongodb';
+import { MbsBuildType, MbsInstanceInputType } from './mbs_types';
 import {
   AuthZMappingType,
   MetadataConsolidatedType,
   MetadataRawType,
 } from './metadata_types';
-import { GraphQLID } from 'graphql';
 import { MetadataModel } from '../services/db_interface';
 import { customMerge } from '../services/misc';
 
@@ -502,6 +504,32 @@ const RootQuery = new GraphQLObjectType({
         return reply;
       },
     },
+    // Queries for module-related information in MBS.
+    mbs_build: {
+      type: MbsBuildType,
+      description:
+        'Query for data on a module build from the Module Build System (MBS)',
+      args: {
+        build_id: {
+          type: new GraphQLNonNull(GraphQLInt),
+          description: 'ID of the MBS build to look up',
+        },
+        instance: {
+          type: MbsInstanceInputType,
+          description:
+            'Identifier of the Module Build System instance to query',
+          defaultValue: MbsInstanceInputType.getValue('rh'),
+        },
+      },
+      async resolve(_parentValue, args) {
+        const { build_id, instance } = args;
+        log('Querying MBS instance ‘%s’ for build ID %s', instance, build_id);
+        const reply = await mbs.queryModuleBuild(instance, build_id);
+        log('MBS reply: %o', reply);
+        return reply;
+      },
+    },
+    // Query for information on a specific commit in the Dist-Git.
     distgit_commit: {
       /**
        * Inspired by: https://git-scm.com/book/en/v2/Git-Internals-Transfer-Protocols

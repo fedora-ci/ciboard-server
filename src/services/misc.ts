@@ -92,7 +92,7 @@ export const getOSVersionFromNvr = (
    * Release can have many dots.
    */
   const release = getReleaseFromNvr(nvr);
-  var os_version;
+  let os_version;
   if (artifactType === 'redhat-module') {
     if (/-f\d\d-/.test(nvr)) {
       /**
