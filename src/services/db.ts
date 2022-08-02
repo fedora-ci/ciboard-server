@@ -107,8 +107,13 @@ const mk_filter = (
     } else {
       throw new Error('Bad call to mk_filter()');
     }
+    /**
+     * Do not add 'g' to RegExp options, this makes indexes unusable
+     * More info: https://www.mongodb.com/docs/manual/reference/operator/query/regex/
+     * The $regex implementation is not collation-aware and is unable to utilize case-insensitive indexes.
+     */
     const values = valuesAreRegex
-      ? _.map(dbFieldValues, (r) => new RegExp(r, 'g'))
+      ? _.map(dbFieldValues, (r) => new RegExp(r))
       : dbFieldValues;
     return { [field]: { $in: values } };
   }
@@ -203,10 +208,7 @@ export const mk_cursor = async (args: QueryOptions) => {
   /*
    * turn on numericOrdering to activate db-index
    */
-  var numericOrdering = _.includes(
-    ['payload.nvr', 'payload.nsvc', 'aid'],
-    name,
-  );
+  var numericOrdering = true;
   var aid_direction: SortDirection = -1;
   var aid;
   if (aid_offset) {
@@ -285,18 +287,16 @@ export const mk_cursor = async (args: QueryOptions) => {
       $project: project,
     });
   }
-  log(
-    'Make aggregation pipeline: %s, numericOrdering: %s',
-    JSON.stringify(aggregate_pipeline),
-    numericOrdering,
-  );
+  log('Make aggregation pipeline: %s', JSON.stringify(aggregate_pipeline));
   const cursor: AggregationCursor<Document> = collection.aggregate(
     aggregate_pipeline,
     {
       collation: {
-        locale: 'en_US',
+        locale: 'simple',
         numericOrdering,
       },
+      /* if query takes more then 9 seconds, then something is wrong */
+      maxTimeMS: 9000,
     },
   );
   /** Remember to cursor.close(); */
