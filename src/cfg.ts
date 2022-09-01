@@ -35,7 +35,7 @@ const DEF_CFG_PATH = path.join(__dirname, '../assets', DEF_CFG_FILENAME);
 assert.strictEqual(
   fs.existsSync(DEF_CFG_PATH),
   true,
-  `Default configuration is absent at ${DEF_CFG_PATH}, cannot continue.`
+  `Default configuration is absent at ${DEF_CFG_PATH}, cannot continue.`,
 );
 /** Additional config with overriden params */
 const OVERRIDE_CFG_FILENAME = 'config-server.yaml';
@@ -44,7 +44,7 @@ const OVERRIDE_CFG_LOOKUP_DIRS = [
   path.join(__dirname, '../assets'),
 ];
 const OVERRIDE_CFG_LOOKUP_PATHS = _.map(OVERRIDE_CFG_LOOKUP_DIRS, (d) =>
-  path.join(d, OVERRIDE_CFG_FILENAME)
+  path.join(d, OVERRIDE_CFG_FILENAME),
 );
 if (process.env.OSCI_SERVER_CFG_PATH) {
   OVERRIDE_CFG_LOOKUP_PATHS.unshift(process.env.OSCI_SERVER_CFG_PATH);
@@ -75,7 +75,7 @@ const mk_config_from_env: any = _.flow(
                   _.stubTrue,
                   _.flow(_.ary(_.trim, 1), _.partial(_.split, _, '\n')),
                 ],
-              ])
+              ]),
             ),
           ]),
           _.cond([
@@ -107,10 +107,10 @@ const mk_config_from_env: any = _.flow(
           ]),
         ]),
       ],
-    ])
+    ]),
   ),
   _.compact,
-  _.fromPairs
+  _.fromPairs,
 );
 
 type YamlItem = string | number | object | null | undefined | unknown;
@@ -137,7 +137,7 @@ class Config {
         try {
           const override_cfg_contents = fs.readFileSync(
             override_cfg_path,
-            'utf8'
+            'utf8',
           );
           this.config_override = yaml.load(override_cfg_contents);
           log('Override config: %s', '\n' + yaml.dump(this.config_override));
@@ -160,7 +160,7 @@ class Config {
       this.config_active,
       this.config_from_env,
       this.config_override,
-      this.config_default
+      this.config_default,
     );
     _.unset(this.config_active, 'env_to_config_map');
     /**
@@ -214,8 +214,18 @@ export interface Cfg {
     url: string;
     limit_default: number;
     db_name: string;
-    collection_name: string;
-    collection_name_components: string;
+    collections: {
+      artifacts: {
+        name: string;
+      };
+      components: {
+        name: string;
+      };
+      metadata: {
+        name: string;
+        indexes: [{ keys: any; options: any }];
+      };
+    };
     options: MongoClientOptions;
   };
   koji_fp: {
@@ -258,6 +268,9 @@ export interface Cfg {
   krb: {
     keytab: string;
     principal: string;
+  };
+  metadata: {
+    rw_groups: { set: string[] };
   };
 }
 
