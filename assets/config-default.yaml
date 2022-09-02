@@ -35,6 +35,14 @@ db:
   url: ~
   limit_default: 20
   db_name: 'ci-messages'
+  collections:
+    metadata:
+      name: 'metadata'
+      indexes: []
+    artifacts:
+      name: 'artifacts'
+    components:
+      name: 'components_mapping'
   collection_name: 'artifacts'
   collection_name_components: 'components_mapping'
   options:
@@ -70,6 +78,11 @@ krb:
   # keytab base64 encoded
   keytab: ~
   principal: ~
+metadata:
+  rw_groups:
+    set:
+      # http://localhost:5000/current_user
+      - Employee
 
 env_to_config_map:
   port: SRV_PORT
@@ -98,8 +111,13 @@ env_to_config_map:
     url: SRV_DB_URL
     limit_default: SRV_DB_LIMIT_DEFAULT
     db_name: SRV_DB_DB_NAME
-    collection_name: SRV_DB_COLLECTION_NAME
-    collection_name_components: SRV_DB_COLLECTION_NAME_COMPONENTS
+    collections:
+      artifacts:
+        name: SRV_DB_COLLECTION_NAME
+      components:
+        name: SRV_DB_COLLECTION_NAME_COMPONENTS
+      metadata:
+        name: SRV_DB_COLLECTION_NAME_METADATA
     options:
       tlsCAFile: SRV_DB_OPTIONS_TLSCAFILE
   koji_fp:
@@ -132,3 +150,8 @@ env_to_config_map:
   krb:
     keytab: SRV_KRB_KEYTAB
     principal: SRV_KRB_PRINCIPAL
+  metadata:
+    rw_groups:
+      set:
+        # use new line to separate
+        - SRV_METADATA_RW_GROUPS

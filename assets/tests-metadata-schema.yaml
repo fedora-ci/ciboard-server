@@ -1,0 +1,192 @@
+$id: tests-metadata-schema
+$schema: http://json-schema.org/draft-07/schema#
+
+description: Metadata associated with specific test-case name.
+  Initialy prosed at https://issues.redhat.com/browse/OSCI-2932
+
+properties:
+  _id:
+    description: Metadata document ID, internal reference in DB.
+    examples:
+      - 62c2f94b7c97433711f32054
+    type: string
+  testcase_name:
+    description: ResultsDB testcase. Adresses specific CI-system.
+      A CI or other testing system that would like to discover, stage and invoke tests for a test subject.
+      Can be encoded in https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions
+    examples:
+      - 'osci.brew-build./plans/tier1-internal.functional'
+      - 'osci.brew-build.installability.functional'
+      - '^osci.brew-build\.\w+\.\w+$'
+    type: string
+  testcase_name_is_regex:
+    enum:
+      - false
+      - true
+    type: boolean
+  priority:
+    description: Priority of this metadata to other metadata
+    examples:
+      - 10
+    type: number
+  product_version:
+    description: greenwave product version
+    examples:
+      - rhel-8
+      - rhel-9
+    type: string
+  payload:
+    type: object
+    properties:
+      description:
+        description: generic description about this specific test
+        type: string
+      known_issues:
+        description:
+          Imagine that we have an outage and all test-compose tests fail. All RHEL developers
+          checking the CI Dashboard have to open the log and debug it or ask us for help.
+          With test-case related metadata, we could easily add "known issues" there and CI Dashboard
+          could present this to user next to failure. User would then see the test is affected by outage
+          or there is a known issue with a test we already track.
+        type: array
+        items:
+          type: object
+          description: Gives information about currect known issue
+          properties:
+            info:
+              description: details about specific issue
+              type: string
+              examples:
+                - RHEL composes are blocked by https://issues.redhat.com/browse/RHELBLD-10255
+            status:
+              description: reflects current status of the issue
+              type: string
+              enum:
+                - active
+                - fixed
+                - irrelevant
+            severity:
+              description: impact of this current issue on CI system
+              type: string
+              enum:
+                - blocker
+                - critical
+                - major
+                - normal
+                - minor
+      dependency:
+        description: List of CI-systems that are related to this CI-system
+        type: array
+        items:
+          description: Reference to another CI-system
+          type: object
+          properties:
+            testcase_name:
+              description: ResultsDB testcase. Adresses specific CI-system.
+                A CI or other testing system that would like to discover, stage and invoke tests for a test subject.
+              examples:
+                - 'osci.brew-build./plans/tier1-internal.functional'
+                - 'osci.brew-build.installability.functional'
+              type: string
+            dependency:
+              description: Shows relation to this CI-system
+              enum:
+                - is_required
+                - is_related_to
+              type: string
+            comment:
+              description: Provides dependency details between these tests
+              examples:
+                - Some meaningful info
+              type: string
+      contact:
+        description: 'Partially based on: https://pagure.io/fedora-ci/messages/blob/master/f/schemas/contact.yaml'
+        type: object
+        properties:
+          name:
+            description: A human readable name for the system.
+            examples:
+              - BaseOS CI
+              - OSCI Compose Gating Bot
+            type: string
+          team:
+            description: A human readable name of the team running the testing
+              or gating. This is useful for example to distinguish
+              multiple teams running on the same Jenkins instance.
+            examples:
+              - BaseOS QE
+              - Libvirt QE
+              - RTT
+              - OSCI
+            type: string
+          docs:
+            description: Link to documentation with details about the system.
+            examples:
+              - https://somewhere.com/user-documentation
+            type: string
+            format: uri
+          email:
+            description: Contact email address.
+            examples:
+              - osci@somewhere.com
+            type: string
+            format: email
+          url:
+            description: URL link to the system or system's web interface.
+            examples:
+              - https://cyborg-jenkins.osci.redhat.com/job/build-group-trigger/build
+            type: string
+            format: uri
+          irc:
+            description: IRC contact for help (prefix with '#' for channel).
+            examples:
+              - '#osci'
+            type: string
+          gchat_room_url:
+            description: Google chat room
+            examples:
+              - 'https://chat.google.com/room/Adwq9XDoM/ci-6Lnomc_s'
+            type: string
+            format: uri
+          report_issue_url:
+            description: URL where user can report issue.
+            examples:
+              - https://url.corp.redhat.com/rut-report-issue
+            type: string
+            format: uri
+  _updated:
+    type: string
+    description: Time test-info was generated. This can be useful to track when
+      metadata was updated for specific test-case.
+      This should be a string of UTC time in ISO 8601 format.
+    examples:
+      - '2018-09-14T18:50:26.143559Z'
+  _update_history:
+    type: array
+    items:
+      description: Tracks who made contributions to this testcase
+      type: object
+      required:
+        - time
+        - author
+      properties:
+        time:
+          description:
+            Time test-info was generated. This can be useful to track when
+            metadata was updated for specific test-case.
+            This should be a string of UTC time in ISO 8601 format.
+          examples:
+            - '2018-09-14T18:50:26.143559Z'
+          type: string
+        authour:
+          description: User name who updated test-info.
+          examples:
+            - 'astepano'
+          type: string
+  _version:
+    type: number
+    examples:
+      - 1
+
+type: object
+# vim: noai:ts=2:sw=2 et
