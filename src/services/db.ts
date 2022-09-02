@@ -650,12 +650,16 @@ export const getCollection = _.memoize(_getCollection);
     return;
   }
   const last = retrivedArtifacts[0];
-  log(
-    "Latest entry: {aid: '%s', type: '%s', updated: %s}",
-    last['aid'],
-    last['type'],
-    last['_updated'],
-  );
+  if (last) {
+    log(
+      "Latest entry: {aid: '%s', type: '%s', updated: %s}",
+      last['aid'],
+      last['type'],
+      last['_updated'],
+    );
+  } else {
+    log('No artifact entries in database');
+  }
   await cursor.close();
 })().catch((...error) => {
   console.dir(...error);
