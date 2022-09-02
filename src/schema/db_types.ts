@@ -26,6 +26,7 @@ import GraphQLJSON from 'graphql-type-json';
 import BigInt from 'graphql-bigint';
 import { delegateToSchema } from '@graphql-tools/delegate';
 import schema from './schema';
+import { ObjectId } from 'mongodb';
 
 const {
   GraphQLID,
@@ -502,3 +503,21 @@ export const ArtifactsType = new GraphQLObjectType({
     has_next: { type: GraphQLBoolean },
   }),
 });
+
+export interface UpdateMetadataArgs {
+  _id?: string;
+  product_version?: string;
+  testcase_name?: string;
+  testcase_name_is_regex?: boolean;
+  priority: number;
+  payload?: object;
+}
+
+export interface UserSamlType {
+  /* astepano@ ... */
+  nameID: string;
+  /* Andrei Stepanov */
+  displayName: string;
+  /* ['splunk-misc-posix', 'osci', ...] */
+  Role: [];
+}

@@ -20,6 +20,7 @@
 
 import debug from 'debug';
 import express, { Express } from 'express';
+const path = require('path');
 
 const log = debug('osci:static');
 
@@ -39,14 +40,14 @@ export default (app: Express) => {
      * catch all case
      */
     app.get('*', (req, res) =>
-      res.sendFile(path.resolve(__dirname, 'client', 'build', 'index.html'))
+      res.sendFile(path.resolve(__dirname, 'client', 'build', 'index.html')),
     );
   } else {
-    log('Run in devel mode.');
-    app.use(express.static('../build/'));
-    const path = require('path');
+    const webRoot = path.resolve(process.cwd(), './webroot/');
+    log('Run in devel mode. Web root : %s', webRoot);
+    app.use(express.static(webRoot));
     app.get('*', (req, res) =>
-      res.sendFile(path.resolve(__dirname, 'client', 'build', 'index.html'))
+      res.sendFile(path.resolve(webRoot, 'index.html')),
     );
   }
 };

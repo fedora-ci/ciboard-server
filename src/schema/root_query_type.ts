@@ -29,7 +29,13 @@ import * as graphql from 'graphql';
 import GraphQLJSON from 'graphql-type-json';
 
 import { getcfg, greenwave_cfg, waiverdb_cfg } from '../cfg';
-import { mk_cursor, QueryOptions, db_list_sst } from '../services/db';
+import {
+  QueryOptions,
+  getCollection,
+  Artifacts,
+  Components,
+  Metadata,
+} from '../services/db';
 import { koji_query } from '../services/kojibrew';
 
 const cfg = getcfg();
@@ -80,7 +86,15 @@ import {
   KojiBuildTagsType,
   KojiInstanceInputType,
 } from './koji_types';
-import { Document } from 'mongodb';
+import { Document, Filter, ObjectId } from 'mongodb';
+import {
+  AuthZMappingType,
+  MetadataConsolidatedType,
+  MetadataRawType,
+} from './metadata_types';
+import { GraphQLID } from 'graphql';
+import { MetadataModel } from '../services/db_interface';
+import { customMerge } from '../services/misc';
 
 const GreenwaveWaiverRuleInputType = new GraphQLInputObjectType({
   name: 'GreenwaveWaiverRuleInputType',
@@ -174,7 +188,7 @@ const RootQuery = new GraphQLObjectType({
             const releases = (sst.releases || []).map((rel) => rel.name);
             const { name, display_name } = sst;
             return { name, display_name, releases };
-          })
+          }),
         );
       },
     },
@@ -188,7 +202,7 @@ const RootQuery = new GraphQLObjectType({
       async resolve(_parentValue, { sst_name, release }) {
         const results_json_url = new URL(
           `/results/${sst_name}.${release}.json`,
-          cfg.sst.url
+          cfg.sst.url,
         ).toString();
         const response = await axios.get(results_json_url);
         /* axios.get can throw exception, if we are here then no exception */
@@ -298,7 +312,7 @@ const RootQuery = new GraphQLObjectType({
         }
         const target_url = new URL(
           `${id}`,
-          waiverdb_cfg.waivers.api_url.toString()
+          waiverdb_cfg.waivers.api_url.toString(),
         ).toString();
         return axios.get(target_url).then((x) => x.data);
       },
@@ -523,7 +537,7 @@ const RootQuery = new GraphQLObjectType({
           instance,
           namespace,
           repo_name,
-          commit_sha1
+          commit_sha1,
         );
         const [dir, file] = splitAt(2)(commit_sha1);
         var url;
@@ -538,7 +552,7 @@ const RootQuery = new GraphQLObjectType({
         }
         if (instance === 'cs') {
           const project_path = encodeURIComponent(
-            `redhat/centos-stream/${namespace}/${repo_name}`
+            `redhat/centos-stream/${namespace}/${repo_name}`,
           );
           url = `${cfg.distgit.cs.base_url_api}/${project_path}/repository/commits/${commit_sha1}`;
           const reply = await axios.get(url);
@@ -560,7 +574,7 @@ const RootQuery = new GraphQLObjectType({
           repo_name,
           commit_sha1,
           '\n',
-          commit_obj
+          commit_obj,
         );
         return commit_obj;
       },
@@ -627,12 +641,13 @@ const RootQuery = new GraphQLObjectType({
         };
         const args_with_default: QueryOptions = _.defaultsDeep(
           args,
-          args_default
+          args_default,
         );
         const { atype, limit } = args_with_default;
         const add_path: string[][] = [];
         log('Requested: %o', args_with_default);
-        const cursor = await mk_cursor(args_with_default);
+        const collection = await getCollection(Artifacts);
+        const cursor = await collection.mk_cursor(args_with_default);
         var artifacts: Array<Document>;
         try {
           artifacts = await cursor.toArray();
@@ -640,7 +655,7 @@ const RootQuery = new GraphQLObjectType({
           console.error(
             'Failed to run cursor for request: %s. Ignoring.: ',
             args_with_default,
-            _.toString(err)
+            _.toString(err),
           );
           if (_.isError(err)) {
             /* close() is promise, ignore result */
@@ -653,12 +668,12 @@ const RootQuery = new GraphQLObjectType({
         log(
           ' [i] fetched artifacts of type %s aids: %o',
           atype,
-          _.map(artifacts, 'aid')
+          _.map(artifacts, 'aid'),
         );
         _.forEach(artifacts, (artifact) =>
           _.forEach(add_path, ([pathold, pathnew]) =>
-            _.set(artifact, pathnew, _.get(artifact, pathold))
-          )
+            _.set(artifact, pathnew, _.get(artifact, pathold)),
+          ),
         );
         /**
          * Check if has next for query:
@@ -673,7 +688,8 @@ const RootQuery = new GraphQLObjectType({
             limit: 1,
             aid_offset,
           };
-          const cursor = await mk_cursor(args);
+          const collection = await getCollection(Artifacts);
+          const cursor = await collection.mk_cursor(args);
           const artifact_next = await cursor.toArray();
           has_next = artifact_next.length ? true : false;
           log('aid_offset == %s, has_next == %s', aid_offset, has_next);
@@ -700,7 +716,101 @@ const RootQuery = new GraphQLObjectType({
       description: 'List know SST teams.',
       async resolve(_parentValue, args, _context, _info) {
         const { product_id } = args;
-        return await db_list_sst(product_id);
+        const collection = await getCollection(Components);
+        return await collection.db_list_sst(product_id);
+      },
+    },
+    metadata_consolidated: {
+      args: {
+        testcase_name: {
+          type: new GraphQLNonNull(GraphQLString),
+          description:
+            'Exact testcase name. Example: osci.brew-build./plans/tier1-internal.functional',
+        },
+        product_version: {
+          type: GraphQLString,
+          description:
+            /* product version == greenwave product_version */
+            'Narrow metadata only for specific product version, including common metadata. Example: rhel-8. If not specified, show for all available products.',
+        },
+      },
+      type: MetadataConsolidatedType,
+      description: 'Returns consolidated metadata for specified testcase.',
+      async resolve(_parentValue, args, _context, _info) {
+        const { testcase_name, product_version } = args;
+        const col = await getCollection(Metadata);
+        const testcaseName = {
+          $cond: {
+            if: { $eq: ['$testcase_name_is_regex', true] },
+            then: {
+              $regexMatch: {
+                input: testcase_name,
+                regex: '$testcase_name',
+                options: 'i',
+              },
+            },
+            else: { $eq: ['$testcase_name', testcase_name] },
+          },
+        };
+        const query: Filter<MetadataModel> = { $expr: testcaseName };
+        if (_.has(args, 'product_version')) {
+          query.product_version = product_version;
+        }
+        const docs = await col.find(query);
+        const mergedMetadata = _.mergeWith(
+          {},
+          ..._.map(docs, 'payload'),
+          customMerge,
+        );
+        return { payload: mergedMetadata };
+      },
+    },
+    metadata_raw: {
+      args: {
+        _id: {
+          type: GraphQLID,
+          description: 'Fetch only metadata for entry with ID',
+        },
+        testcase_name: {
+          type: GraphQLString,
+          description:
+            /* product version == greenwave product_version */
+            'Regex for testcase_name field.',
+        },
+      },
+      type: new GraphQLList(MetadataRawType),
+      description: 'Returns a list of raw metadata.',
+      async resolve(_parentValue, args, _context, _info) {
+        const col = await getCollection(Metadata);
+        const query: Filter<MetadataModel> = _.omit(args, [
+          '_id',
+          'testcase_name',
+        ]);
+        if (_.has(args, '_id')) {
+          query._id = new ObjectId(args._id);
+        }
+        if (_.isString(args.testcase_name)) {
+          query.testcase_name = new RegExp(args.testcase_name, 'i');
+        }
+        const doc = await col.find(query);
+        return doc;
+      },
+    },
+    authz_mapping: {
+      type: AuthZMappingType,
+      description: 'Returns an object of allowed actions for user.',
+      async resolve(_parentValue, _args, context, _info) {
+        const { user } = context;
+        const authz = { can_edit_metadata: false };
+        if (!user || !user.displayName) {
+          return authz;
+        }
+        const allowedRWGroups = cfg.metadata.rw_groups.set;
+        const rwGroups = _.intersection(user.Role, allowedRWGroups);
+        if (!_.isEmpty(rwGroups)) {
+          authz.can_edit_metadata = true;
+        }
+        return authz;
       },
     },
   }),
