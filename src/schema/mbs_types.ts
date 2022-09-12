@@ -2,6 +2,7 @@
  * This file is part of ciboard-server
  *
  * Copyright (c) 2021 Andrei Stepanov <astepano@redhat.com>
+ * Copyright (c) 2022 Matěj Grabovský <mgrabovs@redhat.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -23,7 +24,6 @@ import debug from 'debug';
 import * as graphql from 'graphql';
 import {
   GraphQLBoolean,
-  GraphQLFloat,
   GraphQLInt,
   GraphQLList,
   GraphQLNonNull,
@@ -37,74 +37,149 @@ import schema from './schema';
 
 const log = debug('osci:mbs_types');
 
-export const MbsTaskType = new GraphQLObjectType({
+export interface MbsTaskFields {
+  component: string;
+  id?: number;
+  nvr: string;
+  state: number;
+}
+
+export const MbsTaskType = new GraphQLObjectType<MbsTaskFields, {}>({
   name: 'MbsTaskType',
-  fields: () => ({
-    component: { type: GraphQLNonNull(GraphQLString) },
-    id: { type: GraphQLInt },
-    nvr: { type: GraphQLNonNull(GraphQLString) },
-    state: { type: GraphQLNonNull(GraphQLInt) },
-  }),
+  fields: {
+    component: {
+      description: 'Name of the component comprising the task',
+      type: GraphQLNonNull(GraphQLString),
+    },
+    id: { description: 'ID of the Koji task', type: GraphQLInt },
+    nvr: {
+      description: 'Full NVR of the comprising package',
+      type: GraphQLNonNull(GraphQLString),
+    },
+    state: {
+      description: 'Number of the state the task is currently in',
+      type: GraphQLNonNull(GraphQLInt),
+    },
+  },
 });
 
-export const MbsBuildType = new GraphQLObjectType({
-  name: 'MbsBuildType',
-  fields: () => ({
-    context: { type: GraphQLNonNull(GraphQLString) },
-    id: { type: GraphQLNonNull(GraphQLInt) },
-    // TODO: Can we delegate this field anywhere? We don't seem to have a `koji_tag`
-    // query to ask for info on a specific tag.
-    koji_tag: { type: GraphQLNonNull(GraphQLString) },
-    name: { type: GraphQLNonNull(GraphQLString) },
-    owner: { type: GraphQLNonNull(GraphQLString) },
-    // TODO: Should we delegate the commit info to `distgit_commit`?
-    scmurl: { type: GraphQLNonNull(GraphQLString) },
-    scratch: { type: GraphQLNonNull(GraphQLBoolean) },
-    stream: { type: GraphQLNonNull(GraphQLString) },
-    // TODO: Would it be sensible to delegate this field to `koji_task`?
-    tasks: { type: GraphQLNonNull(GraphQLList(GraphQLNonNull(MbsTaskType))) },
-    time_completed: {
-      description: 'Timestamp when build was finished',
-      type: GraphQLString,
+export interface MbsBuildFields {
+  commit: any;
+  context: string;
+  id: number;
+  koji_tag: string;
+  name: string;
+  owner: string;
+  scmurl?: string;
+  scratch: boolean;
+  stream: string;
+  tasks: MbsTaskFields[];
+  time_completed?: string;
+  version: string;
+}
+
+interface MbsBuildCommitArgs {
+  instance: string;
+}
+
+/*
+ * TOOD: The third type argument should really be `MbsBuildCommitArgs`, but using
+ * that causes a type error further down below in when passing the resolver to the
+ * `resolve` field of `commit` within `MbsBuildType`.
+ */
+const commitResolver: graphql.GraphQLFieldResolver<any, {}, any> = async (
+  parentValue,
+  args,
+  context,
+  info
+) => {
+  const { scmurl } = parentValue;
+  const { instance } = args;
+  const nameWithCommit = _.last(_.split(scmurl, 'modules/'));
+  const [repoName, sha1] = _.split(nameWithCommit, '?#');
+  log('Getting commit object for %s:%s', repoName, sha1);
+  if (!repoName || !sha1) {
+    return {};
+  }
+  return await delegateToSchema({
+    schema: schema,
+    operation: 'query',
+    fieldName: 'distgit_commit',
+    args: {
+      commit_sha1: sha1,
+      instance,
+      namespace: 'modules',
+      repo_name: repoName,
     },
-    version: { type: GraphQLNonNull(GraphQLString) },
-    /*
-    commit_obj: {
+    context,
+    info,
+  });
+};
+
+export const MbsBuildType = new GraphQLObjectType<MbsBuildFields, {}>({
+  name: 'MbsBuildType',
+  fields: {
+    commit: {
+      description:
+        'Commit object correponding to the source Git commit of the build',
       type: CommitObject,
       args: {
         instance: {
           type: DistGitInstanceInputType,
-          description: 'Dist-git name',
+          description: 'Dist-git instance identifer',
           defaultValue: 'fp',
         },
       },
-      async resolve(parentValue, args, context, info) {
-        const { source } = parentValue;
-        const { instance } = args;
-        const name_sha1 = _.last(_.split(source, 'rpms/'));
-        const [name_dot_git, sha1] = _.split(name_sha1, '#');
-        const name = _.replace(name_dot_git, /.git$/, '');
-        log('Getting commit-object for %s:%s', name, sha1);
-        if (!_.every([name, sha1])) {
-          return {};
-        }
-        const co = await delegateToSchema({
-          schema: schema,
-          operation: 'query',
-          fieldName: 'distgit_commit',
-          args: {
-            repo_name: name,
-            commit_sha1: sha1,
-            instance,
-          },
-          context,
-          info,
-        });
-        return co;
-      },
+      resolve: commitResolver,
     },
-    */
-  }),
+    context: {
+      description: 'Module context identifier. The ‘C’ in NSVC',
+      type: GraphQLNonNull(GraphQLString),
+    },
+    id: {
+      description: 'Module build ID',
+      type: GraphQLNonNull(GraphQLInt),
+    },
+    koji_tag: {
+      description:
+        'The corresponding Koji tag where the module components are built',
+      type: GraphQLNonNull(GraphQLString),
+    },
+    name: {
+      description: 'Name of the package. The ‘N’ in NSVC.',
+      type: GraphQLNonNull(GraphQLString),
+    },
+    owner: {
+      description: 'Owner/initiator of the module build',
+      type: GraphQLNonNull(GraphQLString),
+    },
+    scmurl?: {
+      description: 'URL of the Git commit from which the module is built',
+      type: GraphQLString,
+    },
+    scratch: {
+      description: 'Flag indication if the module build is a scratch build',
+      type: GraphQLNonNull(GraphQLBoolean),
+    },
+    stream: {
+      description: 'Module stream identifier. The ‘S’ in NSVC.',
+      type: GraphQLNonNull(GraphQLString),
+    },
+    // TODO: Would it be sensible to delegate this field to `koji_task`?
+    tasks: {
+      description: 'List of Koji tasks comprising the module build',
+      type: GraphQLNonNull(GraphQLList(GraphQLNonNull(MbsTaskType))),
+    },
+    time_completed: {
+      description:
+        'Date and time when the module build was finished in ISO 8601 format',
+      type: GraphQLString,
+    },
+    version: {
+      description: 'Module version identifier. The ‘V’ in NSVC.',
+      type: GraphQLNonNull(GraphQLString),
+    },
+  },
 });
 
 export const MbsInstanceInputType = new graphql.GraphQLEnumType({
