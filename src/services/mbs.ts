@@ -30,10 +30,10 @@ const cfg = getcfg();
 const log = debug('osci:mbs');
 
 interface MbsTaskResponse {
-  task_id?: number;
   nvr?: string;
   state: number;
   state_reason: string;
+  task_id?: number;
 }
 
 interface MbsModuleBuildResponse {
@@ -53,14 +53,14 @@ interface MbsModuleBuildResponse {
   state_name: string;
   /** Module stream. The second component of the NSVC */
   stream: string;
-  // TODO: Use a more appropriate type?
+  // TODO: Can there be more artifact types other than RPMs in a module build?
   tasks: { rpms?: Record<string, MbsTaskResponse> };
   time_completed?: string;
   /** Module version. The third component of the NSVC */
   version: string;
 }
 
-const mbsTaskSchema = z.object({
+export const mbsTaskSchema = z.object({
   component: z.string(),
   id: z.number().optional(),
   nvr: z.string().optional(),
@@ -69,10 +69,40 @@ const mbsTaskSchema = z.object({
 
 export type MbsTask = z.infer<typeof mbsTaskSchema>;
 
-const rpmsTasksSchema = z.preprocess((tasks) => {
-  const { rpms } = tasks as MbsModuleBuildResponse['tasks'];
-  if (!rpms) return [];
-  return Object.entries(rpms).map(([component, task]) => ({
+/**
+ * This schema fragment preprocesses the dictionary tasks of a module build
+ * into a form that is more suitable for further processing.
+ *
+ * The structure we receive from MBS looks like
+ *
+ *     ...
+ *     tasks: {
+ *       rpms: {
+ *         component1: {
+ *           nvr: "component1-2.3.4-9.module+el8.4.0+1111+aeb4ae67",
+ *           state: 1,
+ *           task_id: 90909090,
+ *         },
+ *         component2: { ... },
+ *         ...
+ *       }
+ *     }
+ *     ...
+ *
+ * This schema fragment takes the RPM part of the component–task map and turns it
+ * into a list of tasks. It ignores non-RPM tasks that might appear in the response
+ * from MBS. After the schema is applied, the output looks like
+ *
+ *     [
+ *       { component: "component1", nvr: "component1-2.3.4-...", ... },
+ *       { component: "component2", ... },
+ *       ...
+ *     ]
+ */
+const rpmsTasksSchema = z.preprocess((input) => {
+  const tasks = input as MbsModuleBuildResponse['tasks'] | undefined;
+  if (!tasks || !tasks.rpms) return [];
+  return Object.entries(tasks.rpms).map(([component, task]) => ({
     component,
     id: task.task_id,
     nvr: task.nvr,
@@ -80,7 +110,7 @@ const rpmsTasksSchema = z.preprocess((tasks) => {
   }));
 }, mbsTaskSchema.array());
 
-const mbsModuleBuildSchema = z.object({
+export const moduleBuildSchema = z.object({
   /** Module context. The last component of the NSVC */
   context: z.string(),
   /** Module build ID */
@@ -98,30 +128,7 @@ const mbsModuleBuildSchema = z.object({
   state_name: z.string(),
   /** Module stream. The second component of the NSVC */
   stream: z.string(),
-  /* TODO: This needs a bit more wrangling.
-   * The response from MBS API has the form
-   *    ...
-   *    tasks: {
-   *      rpms: {
-   *        component1: { ... },
-   *        component2: { ... },
-   *        ...
-   *      }
-   *    }
-   *    ...
-   * Q: Are other kinds of artifacts other than "rpm" supported?
-   * Q: Can the `tasks` field be missing or null? Can it be `{}`?
-   *    Can `tasks.rpms` be missing or null?
-   * We want the output to be a list, such as
-   *    ...
-   *    tasks: [
-   *      { component: "component1", ... },
-   *      { component: "component2", ... },
-   *      ...
-   *    ]
-   *    ...
-   */
-  // TODO: Preprocess.
+  /** List of Koji tasks comprising the module build */
   tasks: rpmsTasksSchema,
   /** Timestamp of when the build was completed. MBS should supply this in ISO 8601 format */
   time_completed: z.string().optional(),
@@ -129,22 +136,35 @@ const mbsModuleBuildSchema = z.object({
   version: z.string(),
 });
 
-export type MbsModuleBuild = z.infer<typeof mbsModuleBuildSchema>;
+export type ModuleBuild = z.infer<typeof moduleBuildSchema>;
 
 export const queryModuleBuild = async (
   instanceId: MbsInstance,
   buildId: number
-): Promise<MbsModuleBuild | undefined> => {
-  // TODO: Make sure build_id is validated as an integer somewhere in the pipeline.
+): Promise<ModuleBuild> => {
   const instanceUrl = cfg.mbs[instanceId]?.url;
   const url = `${instanceUrl}/module-builds/${buildId}`;
+
   let response: AxiosResponse<any> | undefined;
   try {
     response = await axios.get(url);
-    const parsed = await mbsModuleBuildSchema.parseAsync(response?.data);
-    return parsed;
   } catch (responseError) {
-    // TODO: Handle errors and return an appropriate response.
-    log('Cannot proccess %s. Error: %o', url, responseError);
+    log('Could not retrieve URL %s. Error: %o', url, responseError);
+    throw new Error(`Error communicating with MBS: ${responseError}`);
+  }
+
+  try {
+    const parsed = await moduleBuildSchema.parseAsync(response?.data);
+    return parsed;
+  } catch (parsingError) {
+    if (parsingError instanceof z.ZodError) {
+      const formattedError = parsingError.format();
+      log('Could not parse response from MBS: %o', formattedError);
+      throw new Error(
+        `Could not parse response from MBS: ${JSON.stringify(formattedError)}`
+      );
+    }
+    log('Could not parse response from MBS: %o', parsingError);
+    throw parsingError;
   }
 };
