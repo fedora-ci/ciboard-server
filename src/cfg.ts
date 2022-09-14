@@ -54,7 +54,7 @@ for (const cfgpath of OVERRIDE_CFG_LOOKUP_PATHS) {
   log(cfgpath);
 }
 
-const mk_config_from_env: any = _.flow(
+export const old_mk_config_from_env: any = _.flow(
   _.identity,
   _.toPairs,
   _.partialRight(
@@ -87,7 +87,7 @@ const mk_config_from_env: any = _.flow(
       [
         _.flow([_.last, _.isPlainObject]),
         _.flow([
-          _.over([_.head, _.flow(_.last, (o) => mk_config_from_env(o))]),
+          _.over([_.head, _.flow(_.last, (o) => old_mk_config_from_env(o))]),
           _.cond([
             [_.flow([_.last, _.size]), _.identity],
             [_.stubTrue, _.noop],
@@ -112,6 +112,46 @@ const mk_config_from_env: any = _.flow(
   _.compact,
   _.fromPairs,
 );
+
+export const mk_config_from_env = (envToConfigMap?: object): object | undefined => {
+  if (!envToConfigMap) return;
+  const entries = Object.entries(envToConfigMap);
+  const envEntries: ([string, string | string[]] | undefined)[] = entries.map(
+    ([key, value]) => {
+      /*
+       * For arrays, the first entry determines the name of the environment variable
+       * to parse. If the environment variable is present, each line of its value is
+       * an entry of the resulting array. If there are no entries, skip it.
+       */
+      if (_.isArray(value)) {
+        const envValue = _.get(process.env, _.first(value));
+        let newValue: string[] = [];
+        if (!_.isUndefined(envValue)) newValue = envValue.trim().split('\n');
+        if (!_.isEmpty(newValue)) return [key, newValue];
+      }
+      /*
+       * Objects are traversed recursively. If an empty object is returned,
+       * discard it.
+       */
+      if (_.isPlainObject(value)) {
+        const newValue = mk_config_from_env(value);
+        if (!_.isEmpty(newValue)) return [key, newValue];
+      }
+      /*
+       * Interpret pure strings as environment variable names and try to get their
+       * value, if set.
+       */
+      if (_.isString(value)) {
+        const envValue = _.get(process.env, value);
+        if (!_.isUndefined(envValue)) return [key, envValue];
+      }
+    },
+  );
+  /*
+   * Remove `undefined` values and construct a map from the array of key-value pairs.
+   */
+  return Object.fromEntries(_.compact(envEntries));
+};
 
 type YamlItem = string | number | object | null | undefined | unknown;
 
