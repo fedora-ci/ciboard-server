@@ -32,8 +32,13 @@ import {
 } from 'graphql';
 import { delegateToSchema } from '@graphql-tools/delegate';
 
-import { CommitObject, DistGitInstanceInputType } from './distgit_types';
 import schema from './schema';
+import { CommitObject, DistGitInstanceInputType } from './distgit_types';
+import {
+  KojiBuildTagsType,
+  KojiHistoryType,
+  KojiInstanceInputType,
+} from './koji_types';
 
 const log = debug('osci:mbs_types');
 
@@ -91,7 +96,7 @@ const commitResolver: graphql.GraphQLFieldResolver<any, {}, any> = async (
   parentValue,
   args,
   context,
-  info
+  info,
 ) => {
   const { scmurl } = parentValue;
   const { instance } = args;
@@ -112,6 +117,52 @@ const commitResolver: graphql.GraphQLFieldResolver<any, {}, any> = async (
       repo_name: repoName,
     },
     context,
+    info,
+  });
+};
+
+const tagHistoryResolver: graphql.GraphQLFieldResolver<any, {}, any> = async (
+  parentValue,
+  args,
+  schemaContext,
+  info,
+) => {
+  const { context, name, stream, version } = parentValue;
+  const { instance } = args;
+  const nvr = `${name}-${stream}-${version}.${context}`;
+  log('Delegating Koji tagging history query for NVR %s', nvr);
+  return await delegateToSchema({
+    schema,
+    operation: 'query',
+    fieldName: 'koji_build_history_by_nvr',
+    args: {
+      instance,
+      nvr,
+    },
+    context: schemaContext,
+    info,
+  });
+};
+
+const tagsResolver: graphql.GraphQLFieldResolver<any, {}, any> = async (
+  parentValue,
+  args,
+  schemaContext,
+  info,
+) => {
+  const { context, name, stream, version } = parentValue;
+  const { instance } = args;
+  const nvr = `${name}-${stream}-${version}.${context}`;
+  log('Delegating Koji tags query for NVR %s', nvr);
+  return await delegateToSchema({
+    schema: schema,
+    operation: 'query',
+    fieldName: 'koji_build_tags_by_nvr',
+    args: {
+      instance,
+      nvr,
+    },
+    context: schemaContext,
     info,
   });
 };
@@ -164,6 +215,30 @@ export const MbsBuildType = new GraphQLObjectType<MbsBuildFields, {}>({
     stream: {
       description: 'Module stream identifier. The ‘S’ in NSVC.',
       type: GraphQLNonNull(GraphQLString),
+    },
+    tag_history: {
+      description: 'History of current and former tags for this module build',
+      type: KojiHistoryType,
+      args: {
+        instance: {
+          type: KojiInstanceInputType,
+          description: 'Koji hub name',
+          defaultValue: 'fedoraproject',
+        },
+      },
+      resolve: tagHistoryResolver,
+    },
+    tags: {
+      description: 'List of currently active Koji tags for this module build',
+      type: new GraphQLList(KojiBuildTagsType),
+      args: {
+        instance: {
+          type: KojiInstanceInputType,
+          description: 'Koji hub name',
+          defaultValue: 'fedoraproject',
+        },
+      },
+      resolve: tagsResolver,
     },
     // TODO: Would it be sensible to delegate this field to `koji_task`?
     tasks: {

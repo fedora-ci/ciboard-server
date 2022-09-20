@@ -439,6 +439,8 @@ const RootQuery = new GraphQLObjectType({
     },
     koji_build_history: {
       type: KojiHistoryType,
+      description:
+        'Retrieve history of tagging of a Koji build given its Build ID',
       args: {
         build_id: {
           type: new GraphQLNonNull(GraphQLInt),
@@ -456,6 +458,33 @@ const RootQuery = new GraphQLObjectType({
         const reply = await koji_query(instance, 'queryHistory', {
           __starstar: true,
           build: build_id,
+        });
+        log('Koji reply: %o', reply);
+        _.forEach(reply.tag_listing, _.partial(keys_translate, '.', '_'));
+        return reply;
+      },
+    },
+    koji_build_history_by_nvr: {
+      type: KojiHistoryType,
+      description:
+        'Retrieve history of tagging of a Koji build given its NVR',
+      args: {
+        nvr: {
+          type: new GraphQLNonNull(GraphQLString),
+          description: "The build's NVR to look up",
+        },
+        instance: {
+          type: KojiInstanceInputType,
+          description: 'Koji hub name',
+          defaultValue: 'fedoraproject',
+        },
+      },
+      async resolve(parentValue, args) {
+        const { nvr, instance } = args;
+        log('Query %s for queryHistory. NVR : %s', instance, nvr);
+        const reply = await koji_query(instance, 'queryHistory', {
+          __starstar: true,
+          build: nvr,
         });
         log('Koji reply: %o', reply);
         _.forEach(reply.tag_listing, _.partial(keys_translate, '.', '_'));
@@ -485,6 +514,8 @@ const RootQuery = new GraphQLObjectType({
     },
     koji_build_tags: {
       type: new GraphQLList(KojiBuildTagsType),
+      description:
+        'Retrieve list of all active tags of a Koji build given its Build ID',
       args: {
         build_id: {
           type: new GraphQLNonNull(GraphQLInt),
@@ -500,6 +531,29 @@ const RootQuery = new GraphQLObjectType({
         const { build_id, instance } = args;
         log('Query %s for listTags. Build id : %s', instance, build_id);
         const reply = await koji_query(instance, 'listTags', build_id);
+        log('Koji reply: %o', reply);
+        return reply;
+      },
+    },
+    koji_build_tags_by_nvr: {
+      type: new GraphQLList(KojiBuildTagsType),
+      description:
+        'Retrieve list of all active tags of a Koji build given its NVR',
+      args: {
+        nvr: {
+          type: new GraphQLNonNull(GraphQLString),
+          description: "The build's NVR to look up",
+        },
+        instance: {
+          type: KojiInstanceInputType,
+          description: 'Koji hub name',
+          defaultValue: 'fedoraproject',
+        },
+      },
+      async resolve(parentValue, args) {
+        const { nvr, instance } = args;
+        log('Query %s for listTags. NVR : %s', instance, nvr);
+        const reply = await koji_query(instance, 'listTags', nvr);
         log('Koji reply: %o', reply);
         return reply;
       },
