@@ -155,14 +155,6 @@ const ArtifactsOptionsInputType = new GraphQLInputObjectType({
   }),
 });
 
-const keys_translate = (ch1: string, ch2: string, obj: any) => {
-  _.forEach(_.keys(obj), (key) => {
-    if (_.includes(key, ch1)) {
-      _.set(obj, _.replace(key, ch1, ch2), _.get(obj, key));
-    }
-  });
-};
-
 const splitAt = (index: number) => (x: any[]) =>
   [x.slice(0, index), x.slice(index)];
 
@@ -460,14 +452,12 @@ const RootQuery = new GraphQLObjectType({
           build: build_id,
         });
         log('Koji reply: %o', reply);
-        _.forEach(reply.tag_listing, _.partial(keys_translate, '.', '_'));
         return reply;
       },
     },
     koji_build_history_by_nvr: {
       type: KojiHistoryType,
-      description:
-        'Retrieve history of tagging of a Koji build given its NVR',
+      description: 'Retrieve history of tagging of a Koji build given its NVR',
       args: {
         nvr: {
           type: new GraphQLNonNull(GraphQLString),
@@ -487,7 +477,6 @@ const RootQuery = new GraphQLObjectType({
           build: nvr,
         });
         log('Koji reply: %o', reply);
-        _.forEach(reply.tag_listing, _.partial(keys_translate, '.', '_'));
         return reply;
       },
     },
