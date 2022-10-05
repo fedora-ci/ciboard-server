@@ -140,9 +140,11 @@ export type ModuleBuild = z.infer<typeof moduleBuildSchema>;
 
 export const queryModuleBuild = async (
   instanceId: MbsInstance,
-  buildId: number
+  buildId: number,
 ): Promise<ModuleBuild> => {
   const instanceUrl = cfg.mbs[instanceId]?.url;
+  if (!instanceUrl)
+    throw new Error(`URL not configured for the '${instanceId}' MBS instance`);
   const url = `${instanceUrl}/module-builds/${buildId}`;
 
   let response: AxiosResponse<any> | undefined;
@@ -161,7 +163,7 @@ export const queryModuleBuild = async (
       const formattedError = parsingError.format();
       log('Could not parse response from MBS: %o', formattedError);
       throw new Error(
-        `Could not parse response from MBS: ${JSON.stringify(formattedError)}`
+        `Could not parse response from MBS: ${JSON.stringify(formattedError)}`,
       );
     }
     log('Could not parse response from MBS: %o', parsingError);
