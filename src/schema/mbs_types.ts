@@ -102,10 +102,10 @@ const commitResolver: graphql.GraphQLFieldResolver<any, {}, any> = async (
   const { instance } = args;
   const nameWithCommit = _.last(_.split(scmurl, 'modules/'));
   const [repoName, sha1] = _.split(nameWithCommit, '?#');
-  log('Getting commit object for %s:%s', repoName, sha1);
   if (!repoName || !sha1) {
-    return {};
+    throw new Error(`Could not parse repo name and commit from URL '${scmurl}'`);
   }
+  log('Getting commit object for %s:%s', repoName, sha1);
   return await delegateToSchema({
     schema: schema,
     operation: 'query',
