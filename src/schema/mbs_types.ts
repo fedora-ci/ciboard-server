@@ -68,7 +68,7 @@ export const MbsTaskType = new GraphQLObjectType<MbsTaskFields, {}>({
   fields: {
     component: {
       description: 'Name of the component comprising the task',
-      type: GraphQLNonNull(GraphQLString),
+      type: new GraphQLNonNull(GraphQLString),
     },
     id: {
       description:
@@ -77,12 +77,12 @@ export const MbsTaskType = new GraphQLObjectType<MbsTaskFields, {}>({
     },
     nvr: {
       description: 'Full NVR of the comprising package',
-      type: GraphQLNonNull(GraphQLString),
+      type: new GraphQLNonNull(GraphQLString),
     },
     state: {
       description:
         'Number of the state the task is currently in. Can be 1 (success), 3 (canceled), or 4 (failed).',
-      type: GraphQLNonNull(GraphQLInt),
+      type: new GraphQLNonNull(GraphQLInt),
     },
   },
 });
@@ -206,24 +206,24 @@ export const MbsBuildType = new GraphQLObjectType<MbsBuildFields, {}>({
     },
     context: {
       description: 'Module context identifier. The ‘C’ in NSVC',
-      type: GraphQLNonNull(GraphQLString),
+      type: new GraphQLNonNull(GraphQLString),
     },
     id: {
       description: 'Module build ID',
-      type: GraphQLNonNull(GraphQLInt),
+      type: new GraphQLNonNull(GraphQLInt),
     },
     koji_tag: {
       description:
         'The corresponding Koji tag where the module components are built',
-      type: GraphQLNonNull(GraphQLString),
+      type: new GraphQLNonNull(GraphQLString),
     },
     name: {
       description: 'Name of the package. The ‘N’ in NSVC.',
-      type: GraphQLNonNull(GraphQLString),
+      type: new GraphQLNonNull(GraphQLString),
     },
     owner: {
       description: 'Owner/initiator of the module build',
-      type: GraphQLNonNull(GraphQLString),
+      type: new GraphQLNonNull(GraphQLString),
     },
     scmurl: {
       description: 'URL of the Git commit from which the module is built',
@@ -231,11 +231,11 @@ export const MbsBuildType = new GraphQLObjectType<MbsBuildFields, {}>({
     },
     scratch: {
       description: 'Flag indication if the module build is a scratch build',
-      type: GraphQLNonNull(GraphQLBoolean),
+      type: new GraphQLNonNull(GraphQLBoolean),
     },
     stream: {
       description: 'Module stream identifier. The ‘S’ in NSVC.',
-      type: GraphQLNonNull(GraphQLString),
+      type: new GraphQLNonNull(GraphQLString),
     },
     tag_history: {
       description: 'History of current and former tags for this module build',
@@ -264,7 +264,7 @@ export const MbsBuildType = new GraphQLObjectType<MbsBuildFields, {}>({
     // TODO: Would it be sensible to delegate this field to `koji_task`?
     tasks: {
       description: 'List of Koji tasks comprising the module build',
-      type: GraphQLNonNull(GraphQLList(GraphQLNonNull(MbsTaskType))),
+      type: new GraphQLNonNull(GraphQLList(GraphQLNonNull(MbsTaskType))),
     },
     time_completed: {
       description:
@@ -273,7 +273,7 @@ export const MbsBuildType = new GraphQLObjectType<MbsBuildFields, {}>({
     },
     version: {
       description: 'Module version identifier. The ‘V’ in NSVC.',
-      type: GraphQLNonNull(GraphQLString),
+      type: new GraphQLNonNull(GraphQLString),
     },
   },
 });
