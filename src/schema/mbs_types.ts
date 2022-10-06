@@ -43,9 +43,23 @@ import {
 const log = debug('osci:mbs_types');
 
 export interface MbsTaskFields {
+  /**
+   * Name of the component comprising the task.
+   */
   component: string;
+  /**
+   * Koji task ID. This can be empty the task is scheduled but it's canceled before
+   * it's started. This happens, for example, when a failed build of another component
+   * in the module cancels the whole build.
+   */
   id?: number;
+  /**
+   * NVR of the RPM build.
+   */
   nvr: string;
+  /**
+   * State number. Can be 1 (success), 3 (canceled), or 4 (failed).
+   */
   state: number;
 }
 
@@ -56,13 +70,18 @@ export const MbsTaskType = new GraphQLObjectType<MbsTaskFields, {}>({
       description: 'Name of the component comprising the task',
       type: GraphQLNonNull(GraphQLString),
     },
-    id: { description: 'ID of the Koji task', type: GraphQLInt },
+    id: {
+      description:
+        "ID of the Koji task. Can be null if the task is canceled before it's started",
+      type: GraphQLInt,
+    },
     nvr: {
       description: 'Full NVR of the comprising package',
       type: GraphQLNonNull(GraphQLString),
     },
     state: {
-      description: 'Number of the state the task is currently in',
+      description:
+        'Number of the state the task is currently in. Can be 1 (success), 3 (canceled), or 4 (failed).',
       type: GraphQLNonNull(GraphQLInt),
     },
   },
@@ -103,7 +122,9 @@ const commitResolver: graphql.GraphQLFieldResolver<any, {}, any> = async (
   const nameWithCommit = _.last(_.split(scmurl, 'modules/'));
   const [repoName, sha1] = _.split(nameWithCommit, '?#');
   if (!repoName || !sha1) {
-    throw new Error(`Could not parse repo name and commit from URL '${scmurl}'`);
+    throw new Error(
+      `Could not parse repo name and commit from URL '${scmurl}'`,
+    );
   }
   log('Getting commit object for %s:%s', repoName, sha1);
   return await delegateToSchema({
@@ -204,7 +225,7 @@ export const MbsBuildType = new GraphQLObjectType<MbsBuildFields, {}>({
       description: 'Owner/initiator of the module build',
       type: GraphQLNonNull(GraphQLString),
     },
-    scmurl?: {
+    scmurl: {
       description: 'URL of the Git commit from which the module is built',
       type: GraphQLString,
     },
