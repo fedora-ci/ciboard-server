@@ -102,12 +102,17 @@ export type MbsTask = z.infer<typeof mbsTaskSchema>;
 const rpmsTasksSchema = z.preprocess((input) => {
   const tasks = input as MbsModuleBuildResponse['tasks'] | undefined;
   if (!tasks || !tasks.rpms) return [];
-  return Object.entries(tasks.rpms).map(([component, task]) => ({
+  const rpmTasks = Object.entries(tasks.rpms).map(([component, task]) => ({
     component,
     id: task.task_id,
     nvr: task.nvr,
     state: task.state,
   }));
+  /*
+   * Remove tasks with no NVR. These seem to occur sporadically in edge cases
+   * but they offer no useful information.
+   */
+  return rpmTasks.filter((task) => !_.isEmpty(task.nvr));
 }, mbsTaskSchema.array());
 
 export const moduleBuildSchema = z.object({
