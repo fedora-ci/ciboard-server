@@ -1,0 +1,66 @@
+{
+  "buildrequires": {
+    "platform": {
+      "context": "00000000", 
+      "filtered_rpms": [], 
+      "koji_tag": "module-rhel-8.4.0-z-build", 
+      "ref": "virtual", 
+      "stream": "el8.4.0.z", 
+      "stream_collision_modules": "", 
+      "ursine_rpms": "", 
+      "version": "2"
+    }
+  }, 
+  "component_builds": [
+    180924, 
+    180923, 
+    180925, 
+    180922
+  ], 
+  "context": "522a0ee4", 
+  "id": 15406, 
+  "koji_tag": "module-postgresql-12-8040020220525214753-522a0ee4", 
+  "name": "postgresql", 
+  "owner": "fjanus", 
+  "rebuild_strategy": "only-changed", 
+  "scmurl": "git://pkgs.devel.redhat.com/modules/postgresql?#8585f9385dbe1aee5ab1c07ebf55e4b83c1adb84", 
+  "scratch": false, 
+  "siblings": [], 
+  "srpms": [], 
+  "state": 5, 
+  "state_name": "ready", 
+  "state_reason": null, 
+  "stream": "12", 
+  "tasks": {
+    "rpms": {
+      "module-build-macros": {
+        "nvr": "module-build-macros-0.1-1.module+el8.4.0+15406+aeb4ae67", 
+        "state": 1, 
+        "state_reason": "", 
+        "task_id": 45556389
+      }, 
+      "pgaudit": {
+        "nvr": "pgaudit-1.4.0-6.module+el8.4.0+11288+c193d6d7", 
+        "state": 1, 
+        "state_reason": "Reused component from previous module build", 
+        "task_id": 37233956
+      }, 
+      "postgres-decoderbufs": {
+        "nvr": "postgres-decoderbufs-0.10.0-2.module+el8.4.0+11288+c193d6d7", 
+        "state": 1, 
+        "state_reason": "Reused component from previous module build", 
+        "task_id": 37233955
+      }, 
+      "postgresql": {
+        "nvr": "postgresql-12.11-2.module+el8.4.0+15406+aeb4ae67", 
+        "state": 1, 
+        "state_reason": "", 
+        "task_id": 45556697
+      }
+    }
+  }, 
+  "time_completed": "2022-05-25T22:17:59Z", 
+  "time_modified": "2022-05-25T22:18:00Z", 
+  "time_submitted": "2022-05-25T21:48:37Z", 
+  "version": "8040020220525214753"
+}

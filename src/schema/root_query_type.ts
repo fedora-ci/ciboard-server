@@ -27,6 +27,7 @@ import assert from 'assert';
 import { URL } from 'url';
 import * as graphql from 'graphql';
 import GraphQLJSON from 'graphql-type-json';
+import { Document, Filter, ObjectId } from 'mongodb';
 
 import { getcfg, greenwave_cfg, waiverdb_cfg } from '../cfg';
 import {
@@ -37,12 +38,14 @@ import {
   Metadata,
 } from '../services/db';
 import { koji_query } from '../services/kojibrew';
+import * as mbs from '../services/mbs';
 
 const cfg = getcfg();
 const log = debug('osci:root_query_type');
 const zlib_inflate = util.promisify(zlib.inflate);
 
 const {
+  GraphQLID,
   GraphQLInt,
   GraphQLList,
   GraphQLString,
@@ -86,13 +89,12 @@ import {
   KojiBuildTagsType,
   KojiInstanceInputType,
 } from './koji_types';
-import { Document, Filter, ObjectId } from 'mongodb';
+import { MbsBuildType, MbsInstanceInputType } from './mbs_types';
 import {
   AuthZMappingType,
   MetadataConsolidatedType,
   MetadataRawType,
 } from './metadata_types';
-import { GraphQLID } from 'graphql';
 import { MetadataModel } from '../services/db_interface';
 import { customMerge } from '../services/misc';
 
@@ -152,14 +154,6 @@ const ArtifactsOptionsInputType = new GraphQLInputObjectType({
     },
   }),
 });
-
-const keys_translate = (ch1: string, ch2: string, obj: any) => {
-  _.forEach(_.keys(obj), (key) => {
-    if (_.includes(key, ch1)) {
-      _.set(obj, _.replace(key, ch1, ch2), _.get(obj, key));
-    }
-  });
-};
 
 const splitAt = (index: number) => (x: any[]) =>
   [x.slice(0, index), x.slice(index)];
@@ -437,6 +431,8 @@ const RootQuery = new GraphQLObjectType({
     },
     koji_build_history: {
       type: KojiHistoryType,
+      description:
+        'Retrieve history of tagging of a Koji build given its Build ID',
       args: {
         build_id: {
           type: new GraphQLNonNull(GraphQLInt),
@@ -456,7 +452,31 @@ const RootQuery = new GraphQLObjectType({
           build: build_id,
         });
         log('Koji reply: %o', reply);
-        _.forEach(reply.tag_listing, _.partial(keys_translate, '.', '_'));
+        return reply;
+      },
+    },
+    koji_build_history_by_nvr: {
+      type: KojiHistoryType,
+      description: 'Retrieve history of tagging of a Koji build given its NVR',
+      args: {
+        nvr: {
+          type: new GraphQLNonNull(GraphQLString),
+          description: "The build's NVR to look up",
+        },
+        instance: {
+          type: KojiInstanceInputType,
+          description: 'Koji hub name',
+          defaultValue: 'fedoraproject',
+        },
+      },
+      async resolve(parentValue, args) {
+        const { nvr, instance } = args;
+        log('Query %s for queryHistory. NVR : %s', instance, nvr);
+        const reply = await koji_query(instance, 'queryHistory', {
+          __starstar: true,
+          build: nvr,
+        });
+        log('Koji reply: %o', reply);
         return reply;
       },
     },
@@ -483,6 +503,8 @@ const RootQuery = new GraphQLObjectType({
     },
     koji_build_tags: {
       type: new GraphQLList(KojiBuildTagsType),
+      description:
+        'Retrieve list of all active tags of a Koji build given its Build ID',
       args: {
         build_id: {
           type: new GraphQLNonNull(GraphQLInt),
@@ -502,6 +524,55 @@ const RootQuery = new GraphQLObjectType({
         return reply;
       },
     },
+    koji_build_tags_by_nvr: {
+      type: new GraphQLList(KojiBuildTagsType),
+      description:
+        'Retrieve list of all active tags of a Koji build given its NVR',
+      args: {
+        nvr: {
+          type: new GraphQLNonNull(GraphQLString),
+          description: "The build's NVR to look up",
+        },
+        instance: {
+          type: KojiInstanceInputType,
+          description: 'Koji hub name',
+          defaultValue: 'fedoraproject',
+        },
+      },
+      async resolve(parentValue, args) {
+        const { nvr, instance } = args;
+        log('Query %s for listTags. NVR : %s', instance, nvr);
+        const reply = await koji_query(instance, 'listTags', nvr);
+        log('Koji reply: %o', reply);
+        return reply;
+      },
+    },
+    // Queries for module-related information in MBS.
+    mbs_build: {
+      type: MbsBuildType,
+      description:
+        'Query for data on a module build from the Module Build System (MBS)',
+      args: {
+        build_id: {
+          type: new GraphQLNonNull(GraphQLInt),
+          description: 'ID of the MBS build to look up',
+        },
+        instance: {
+          type: MbsInstanceInputType,
+          description:
+            'Identifier of the Module Build System instance to query',
+          defaultValue: MbsInstanceInputType.getValue('rh'),
+        },
+      },
+      async resolve(_parentValue, args) {
+        const { build_id, instance } = args;
+        log('Querying MBS instance ‘%s’ for build ID %s', instance, build_id);
+        const reply = await mbs.queryModuleBuild(instance, build_id);
+        log('MBS reply: %o', reply);
+        return reply;
+      },
+    },
+    // Query for information on a specific commit in the Dist-Git.
     distgit_commit: {
       /**
        * Inspired by: https://git-scm.com/book/en/v2/Git-Internals-Transfer-Protocols
