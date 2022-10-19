@@ -32,7 +32,7 @@ const { GraphQLList, GraphQLString, GraphQLObjectType } = graphql;
 const linesWith = (lines: string, start_word: string) =>
   _.filter(
     _.split(lines, '\n'),
-    _.flow(_.identity, _.partial(_.startsWith, _, start_word))
+    _.flow(_.identity, _.partial(_.startsWith, _, start_word)),
   );
 
 /**
@@ -140,7 +140,7 @@ export type PagureApiCommitType = {
 };
 
 export const commitObjFromPagureApi = (
-  commitApi: PagureApiCommitType
+  commitApi: PagureApiCommitType,
 ): CommitObjectType => {
   const co: CommitObjectType = {
     commit_message: commitApi.message,
@@ -169,7 +169,7 @@ export const commitObjFromPagureApi = (
  */
 
 export const commitObjFromGitLabApi = (
-  commitApi: GitLabApiCommitType
+  commitApi: GitLabApiCommitType,
 ): CommitObjectType => {
   const co: CommitObjectType = {
     commit_message: commitApi.message,
