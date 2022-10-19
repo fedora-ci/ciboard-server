@@ -42,6 +42,13 @@ import {
 
 const log = debug('osci:mbs_types');
 
+const mkNvrForModuleBuild = (
+  name: string,
+  stream: string,
+  version: string,
+  context: string,
+) => `${name}-${stream}-${version}.${context}`;
+
 export interface MbsTaskFields {
   /**
    * Name of the component comprising the task.
@@ -150,7 +157,7 @@ const tagHistoryResolver: graphql.GraphQLFieldResolver<any, {}, any> = async (
 ) => {
   const { context, name, stream, version } = parentValue;
   const { instance } = args;
-  const nvr = `${name}-${stream}-${version}.${context}`;
+  const nvr = mkNvrForModuleBuild(name, stream, version, context);
   log('Delegating Koji tagging history query for NVR %s', nvr);
   return await delegateToSchema({
     schema,
@@ -173,7 +180,7 @@ const tagsResolver: graphql.GraphQLFieldResolver<any, {}, any> = async (
 ) => {
   const { context, name, stream, version } = parentValue;
   const { instance } = args;
-  const nvr = `${name}-${stream}-${version}.${context}`;
+  const nvr = mkNvrForModuleBuild(name, stream, version, context);
   log('Delegating Koji tags query for NVR %s', nvr);
   return await delegateToSchema({
     schema: schema,
