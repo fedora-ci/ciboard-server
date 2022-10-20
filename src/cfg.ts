@@ -302,6 +302,7 @@ export const known_types = {
   'copr-build': 'component',
   // XXX: ???
   'productmd-compose': 'payload.compose_id',
+  'redhat-container-image': 'payload.nvr',
 };
 
 export type TKnownType = keyof typeof known_types;

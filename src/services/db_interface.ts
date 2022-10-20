@@ -61,7 +61,11 @@ export type ArtifactTypes =
   /**
    * Builds from https://kojihub.stream.centos.org/koji/
    */
-  | 'koji-build-cs';
+  | 'koji-build-cs'
+  /*
+   * Containers produced by https://brewweb.engineering.redhat.com/
+   */
+  | 'redhat-container-image';
 
 export const atype_to_hub_map = {
   'koji-build': 'fedoraproject',
