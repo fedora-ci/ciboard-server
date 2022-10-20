@@ -42,6 +42,13 @@ import {
 
 const log = debug('osci:mbs_types');
 
+const mkNvrForModuleBuild = (
+  name: string,
+  stream: string,
+  version: string,
+  context: string,
+) => `${name}-${stream}-${version}.${context}`;
+
 export interface MbsTaskFields {
   /**
    * Name of the component comprising the task.
@@ -93,6 +100,7 @@ export interface MbsBuildFields {
   id: number;
   koji_tag: string;
   name: string;
+  nvr: string;
   owner: string;
   scmurl?: string;
   scratch: boolean;
@@ -142,15 +150,22 @@ const commitResolver: graphql.GraphQLFieldResolver<any, {}, any> = async (
   });
 };
 
+const nvrResolver: graphql.GraphQLFieldResolver<any, {}, any> = (
+  parentValue,
+) => {
+  const { context, name, stream, version } = parentValue;
+  const nvr = mkNvrForModuleBuild(name, stream, version, context);
+  return nvr;
+};
+
 const tagHistoryResolver: graphql.GraphQLFieldResolver<any, {}, any> = async (
   parentValue,
   args,
   schemaContext,
   info,
 ) => {
-  const { context, name, stream, version } = parentValue;
   const { instance } = args;
-  const nvr = `${name}-${stream}-${version}.${context}`;
+  const nvr = nvrResolver(parentValue, args, schemaContext, info);
   log('Delegating Koji tagging history query for NVR %s', nvr);
   return await delegateToSchema({
     schema,
@@ -171,9 +186,8 @@ const tagsResolver: graphql.GraphQLFieldResolver<any, {}, any> = async (
   schemaContext,
   info,
 ) => {
-  const { context, name, stream, version } = parentValue;
   const { instance } = args;
-  const nvr = `${name}-${stream}-${version}.${context}`;
+  const nvr = nvrResolver(parentValue, args, schemaContext, info);
   log('Delegating Koji tags query for NVR %s', nvr);
   return await delegateToSchema({
     schema: schema,
@@ -220,6 +234,11 @@ export const MbsBuildType = new GraphQLObjectType<MbsBuildFields, {}>({
     name: {
       description: 'Name of the package. The ‘N’ in NSVC.',
       type: new GraphQLNonNull(GraphQLString),
+    },
+    nvr: {
+      description: 'NVR of the build in the form ‘N-S-V.C’',
+      type: new GraphQLNonNull(GraphQLString),
+      resolve: nvrResolver,
     },
     owner: {
       description: 'Owner/initiator of the module build',
