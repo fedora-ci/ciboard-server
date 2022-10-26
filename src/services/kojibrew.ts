@@ -76,8 +76,78 @@ export const koji_query = async (
             log("Response for '%s':\n%o", method, value);
             resolve(value);
           }
-        }
+        },
       );
     });
   });
+};
+
+/**
+ * Shape of Koji's response to the `queryHistory` API call.
+ */
+export interface KojiQueryHistoryRawResponse {
+  tag_listing: KojiQueryHistoryRawTagListing;
+}
+
+export type KojiQueryHistoryRawTagListing = KojiQueryHistoryRawItem[];
+
+export interface KojiQueryHistoryRawItem {
+  active: boolean;
+  'build.state': number;
+  build_id: number;
+  create_event: number;
+  create_ts: number;
+  creator_id: number;
+  creator_name: string;
+  epoch: number | null;
+  name: string;
+  release: string;
+  revoke_event: number | null;
+  revoke_ts: number | null;
+  revoker_id: number | null;
+  revoker_name: number | null;
+  'tag.name': string;
+  tag_id: number;
+  version: string;
+}
+
+/**
+ * Shape of ciboard-server response to the `koji_build_history` GraphQL query.
+ */
+export interface KojiBuildHistoryResponse {
+  tag_listing: KojiBuildHistoryTagListing;
+}
+
+export type KojiBuildHistoryTagListing = KojiBuildHistoryItem[];
+
+export type KojiBuildHistoryItem = Omit<
+  KojiQueryHistoryRawItem,
+  'build.state' | 'tag.name'
+> & {
+  build_state: KojiQueryHistoryRawItem['build.state'];
+  tag_name: KojiQueryHistoryRawItem['tag.name'];
+};
+
+/**
+ * Transform a raw Koji API response to the `queryHistory` call into a shape
+ * that conforms to the `koji_build_history` and `koji_build_history_by_nvr`
+ * queries in our GraphQL API.
+ * @param kojiResponse Raw response from the Koji API.
+ * @returns Transformed object for GraphQL query response.
+ */
+export const transformKojiHistoryResponse = (
+  kojiResponse: KojiQueryHistoryRawResponse,
+): KojiBuildHistoryResponse => {
+  const tagListing: KojiBuildHistoryTagListing = kojiResponse.tag_listing.map(
+    (item) => {
+      const newItem: KojiBuildHistoryItem = _.merge(
+        _.omit(item, ['build.state', 'tag.name']),
+        { build_state: item['build.state'], tag_name: item['tag.name'] },
+      );
+      return newItem;
+    },
+  );
+
+  const transformedResponse = { tag_listing: tagListing };
+  return transformedResponse;
 };
