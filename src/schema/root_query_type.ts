@@ -37,7 +37,11 @@ import {
   Components,
   Metadata,
 } from '../services/db';
-import { koji_query } from '../services/kojibrew';
+import {
+  KojiQueryHistoryRawResponse,
+  koji_query,
+  transformKojiHistoryResponse,
+} from '../services/kojibrew';
 import * as mbs from '../services/mbs';
 
 const cfg = getcfg();
@@ -447,12 +451,16 @@ const RootQuery = new GraphQLObjectType({
       async resolve(parentValue, args) {
         const { build_id, instance } = args;
         log('Query %s for queryHistory. Build id : %s', instance, build_id);
-        const reply = await koji_query(instance, 'queryHistory', {
-          __starstar: true,
-          build: build_id,
-        });
+        const reply: KojiQueryHistoryRawResponse = await koji_query(
+          instance,
+          'queryHistory',
+          {
+            __starstar: true,
+            build: build_id,
+          },
+        );
         log('Koji reply: %o', reply);
-        return reply;
+        return transformKojiHistoryResponse(reply);
       },
     },
     koji_build_history_by_nvr: {
@@ -477,7 +485,7 @@ const RootQuery = new GraphQLObjectType({
           build: nvr,
         });
         log('Koji reply: %o', reply);
-        return reply;
+        return transformKojiHistoryResponse(reply);
       },
     },
     koji_build: {
