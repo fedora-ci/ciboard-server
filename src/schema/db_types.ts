@@ -41,7 +41,8 @@ import { TKnownType, known_types } from '../cfg';
 import {
   GreenwaveDecisionType,
   greenwave,
-  GreenwaveContextType,
+  getGreenwaveDecisionContext,
+  getGreenwaveRules,
 } from './greenwave_types';
 
 const debug = require('debug');
@@ -467,27 +468,30 @@ export const ArtifactType = new GraphQLObjectType({
         }
         const gate_tag_name: string | undefined =
           parentValue?.payload?.gate_tag_name;
+        const decision_context = getGreenwaveDecisionContext(parentValue);
+        const rules = getGreenwaveRules(parentValue);
+        const product_version = greenwave.decision.product_version(
+          item,
+          gate_tag_name,
+          parentValue.type,
+        );
+        const subject = [
+          {
+            item,
+            type: parentValue.type,
+          },
+        ];
+        const greenwaveDecisionArgs = {
+          decision_context,
+          product_version,
+          subject,
+          rules,
+        };
         return delegateToSchema({
           schema: schema,
           operation: 'query',
           fieldName: 'greenwave_decision',
-          args: {
-            decision_context:
-              greenwave.decision.context[
-                parentValue.type as GreenwaveContextType
-              ],
-            product_version: greenwave.decision.product_version(
-              item,
-              gate_tag_name,
-              parentValue.type,
-            ),
-            subject: [
-              {
-                item,
-                type: parentValue.type,
-              },
-            ],
-          },
+          args: greenwaveDecisionArgs,
           context,
           info,
         });

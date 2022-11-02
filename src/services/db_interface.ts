@@ -19,7 +19,6 @@
  */
 
 import { ObjectId } from 'mongodb';
-import internal from 'stream';
 
 /**
  * All artifacts are uniquelly identified by
@@ -36,7 +35,7 @@ export type ArtifactTypes =
   /**
    * Builds from https://koji.fedoraproject.org/
    */
-  | 'koji-build'
+  | ArtifactTypeKojiBuild
   /**
    * Builds from https://copr.fedorainfracloud.org/
    */
@@ -44,20 +43,20 @@ export type ArtifactTypes =
   /**
    * Builds from https://brewweb.engineering.redhat.com/
    */
-  | 'brew-build'
+  | ArtifactTypeBrewBuild
   /**
    * PR from https://src.osci.redhat.com/
    */
-  | 'dist-git-pr'
+  | ArtifactTypeDistGitPR
   /**
    * MBS builds from https://mbs.engineering.redhat.com/
    */
-  | 'redhat-module'
-  | 'fedora-module'
+  | ArtifactTypeRedHatModule
+  | ArtifactTypeFedoraModule
   /**
    * Composes produced by http://odcs.engineering.redhat.com/
    */
-  | 'productmd-compose'
+  | ArtifactTypeProductMDCompose
   /**
    * Builds from https://kojihub.stream.centos.org/koji/
    */
@@ -65,7 +64,7 @@ export type ArtifactTypes =
   /*
    * Containers produced by https://brewweb.engineering.redhat.com/
    */
-  | 'redhat-container-image';
+  | ArtifactTypeRedhatContainerImage;
 
 export const atype_to_hub_map = {
   'koji-build': 'fedoraproject',
@@ -174,6 +173,30 @@ export interface PayloadBrewBuild {
   build_id?: string;
 }
 
+/*
+ * https://pagure.io/fedora-ci/messages/blob/master/f/schemas/redhat-container-image.yaml
+ */
+export interface PayloadContainerImage {
+  id: string;
+  nvr: string;
+  tag?: string;
+  name?: string;
+  source?: string;
+  issuer: string;
+  task_id: number;
+  build_id?: number;
+  scratch: boolean;
+  component: string;
+  namespace?: string;
+  full_names: string[];
+  registry_url?: string;
+  /*
+   * Entries come from: VirtualTopic.eng.brew.build.complete
+   * https://datagrepper.engineering.redhat.com/raw?topic=/topic/VirtualTopic.eng.brew.build.complete&delta=86400&contains=container_build
+   */
+  osbs_subtypes?: string[];
+}
+
 export interface PayloadRedHatModule {
   /** mbs id */
   mbs_id: string;
@@ -217,7 +240,7 @@ export interface PayloadProductMDCompose {
   release_type?: string;
 }
 
-export interface ArtifactModel {
+export interface ArtifactBaseModel {
   _id: ObjectId;
   /**
    * Common for all artifact types
@@ -232,16 +255,86 @@ export interface ArtifactModel {
   aid: string;
   /** Required. copr-build */
   type: string;
-  payload:
-    | PayloadBrewBuild
-    | PayloadKojiBuild
-    | PayloadDistGitPR
-    | PayloadRedHatModule
-    | PayloadFedoraModule
-    | PayloadProductMDCompose;
+  payload?: {};
   states: ArtifactState[];
   /** When the mongodb-document will be auto-removed, for example: scratch build */
   expire_at?: Date;
+}
+
+export type ArtifactTypeBrewBuild = 'brew-build';
+export type ArtifactTypeKojiBuild = 'koji-build';
+export type ArtifactTypeDistGitPR = 'dist-git-pr';
+export type ArtifactTypeRedHatModule = 'redhat-module';
+export type ArtifactTypeFedoraModule = 'fedora-module';
+export type ArtifactTypeProductMDCompose = 'productmd-compose';
+export type ArtifactTypeRedhatContainerImage = 'redhat-container-image';
+
+export type ArtifactModelBrewBuild = ArtifactBaseModel & {
+  type: ArtifactTypeBrewBuild;
+  payload: PayloadBrewBuild;
+};
+
+export type ArtifactModelKojiBuild = ArtifactBaseModel & {
+  type: ArtifactTypeKojiBuild;
+  payload: PayloadKojiBuild;
+};
+
+export type ArtifactModelDistGitPR = ArtifactBaseModel & {
+  type: ArtifactTypeDistGitPR;
+  payload: PayloadDistGitPR;
+};
+
+export type ArtifactModelRedHatModule = ArtifactBaseModel & {
+  type: ArtifactTypeRedHatModule;
+  payload: PayloadRedHatModule;
+};
+
+export type ArtifactModelFedoraModule = ArtifactBaseModel & {
+  type: ArtifactTypeFedoraModule;
+  payload: PayloadFedoraModule;
+};
+
+export type ArtifactModelProductMDCompose = ArtifactBaseModel & {
+  type: ArtifactTypeProductMDCompose;
+  payload: PayloadProductMDCompose;
+};
+
+export type ArtifactModelRedhatContainerImage = ArtifactBaseModel & {
+  type: ArtifactTypeRedhatContainerImage;
+  payload: PayloadContainerImage;
+};
+
+export type ArtifactModel =
+  | ArtifactModelBrewBuild
+  | ArtifactModelKojiBuild
+  | ArtifactModelDistGitPR
+  | ArtifactModelRedHatModule
+  | ArtifactModelFedoraModule
+  | ArtifactModelProductMDCompose
+  | ArtifactModelRedhatContainerImage;
+
+/**
+ * TypeScript guards
+ */
+export function isArtifactBrewBuild(
+  artifact: ArtifactModel,
+): artifact is ArtifactModelBrewBuild {
+  return artifact.type === 'brew-build';
+}
+export function isArtifactRedHatModule(
+  artifact: ArtifactModel,
+): artifact is ArtifactModelRedHatModule {
+  return artifact.type === 'redhat-module';
+}
+export function isArtifactCompose(
+  artifact: ArtifactModel,
+): artifact is ArtifactModelProductMDCompose {
+  return artifact.type === 'productmd-compose';
+}
+export function isArtifactRedhatContainerImage(
+  artifact: ArtifactModel,
+): artifact is ArtifactModelRedhatContainerImage {
+  return artifact.type === 'redhat-container-image';
 }
 
 export interface MetadataModel {

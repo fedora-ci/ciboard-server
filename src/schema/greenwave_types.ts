@@ -23,6 +23,12 @@ import debug from 'debug';
 import { getOSVersionFromNvr, getOSVersionFromTag } from '../services/misc';
 import { GraphQLJSON } from 'graphql-type-json';
 import _ from 'lodash';
+import {
+  ArtifactModel,
+  isArtifactBrewBuild,
+  isArtifactRedhatContainerImage,
+  isArtifactRedHatModule,
+} from '../services/db_interface';
 
 const log = debug('osci:greenwave_types');
 const {
@@ -171,13 +177,98 @@ export const GreenwavePoliciesType = new GraphQLObjectType({
   }),
 });
 
+export const getGreenwaveDecisionContext = (
+  artifact: ArtifactModel,
+): GreenwaveContext | undefined => {
+  if (isArtifactBrewBuild(artifact)) {
+    return 'osci_compose_gate';
+  } else if (isArtifactRedHatModule(artifact)) {
+    return 'osci_compose_gate_modules';
+  }
+};
+
+type GreenwaveRuleType = {
+  type: string;
+  test_case_name?: string;
+};
+
+export const getGreenwaveRules = (
+  artifact: ArtifactModel,
+): GreenwaveRuleType[] => {
+  if (isArtifactRedhatContainerImage(artifact)) {
+    /*
+     * https://issues.redhat.com/browse/RHELWF-7827
+     * https://code.engineering.redhat.com/gerrit/plugins/gitiles/errata-rails/+/refs/heads/master/lib/brew/import/builds.rb#57
+     * https://code.engineering.redhat.com/gerrit/plugins/gitiles/errata-rails/+/refs/heads/master/config/initializers/settings.rb#524
+     */
+    if (_.includes(artifact.payload.osbs_subtypes, 'operator_bundle')) {
+      return [
+        {
+          type: 'PassingTestCaseRule',
+          test_case_name:
+            'cvp.redhat.detailed.operator-metadata-preparation-bundle-image',
+        },
+        {
+          type: 'PassingTestCaseRule',
+          test_case_name:
+            'cvp.redhat.detailed.operator-metadata-linting-bundle-image',
+        },
+        {
+          type: 'PassingTestCaseRule',
+          test_case_name:
+            'cvp.redhat.detailed.operator-packagename-uniqueness-bundle-image',
+        },
+        {
+          type: 'PassingTestCaseRule',
+          test_case_name:
+            'cvp.redhat.detailed.operator-catalog-initialization-bundle-image',
+        },
+        {
+          type: 'PassingTestCaseRule',
+          test_case_name:
+            'cvp.redhat.detailed.operator-valid-subscriptions-bundle-image',
+        },
+        {
+          type: 'RemoteRule',
+        },
+        {
+          type: 'PassingTestCaseRule',
+          test_case_name:
+            'cvp.redhat.detailed.operator-version-format-bundle-image',
+        },
+        {
+          type: 'PassingTestCaseRule',
+          test_case_name:
+            'cvp.redhat.detailed.operator-olm-deployment-bundle-image',
+        },
+      ];
+    } else {
+      return [
+        {
+          type: 'PassingTestCaseRule',
+          test_case_name: 'cvp.rhproduct.default.sanity',
+        },
+        {
+          type: 'PassingTestCaseRule',
+          test_case_name: 'cvp.rhproduct.default.functional',
+        },
+        {
+          type: 'RemoteRule',
+        },
+      ];
+    }
+  }
+  return [];
+};
+
+export type GreenwaveContext =
+  | 'osci_compose_gate'
+  | 'osci_compose_gate_modules'
+  | 'cvp_default'
+  | 'cvp_redhat_operator_default';
+
 export const greenwave = {
   decision: {
-    context: {
-      'brew-build': 'osci_compose_gate',
-      'redhat-module': 'osci_compose_gate_modules',
-      'redhat-container': 'cvp_default',
-    },
     product_version: (
       nvr: string,
       gate_tag_name: string | undefined,
@@ -197,7 +288,7 @@ export const greenwave = {
           return `rhel-${rhel_version}`;
         case 'redhat-module':
           return `rhel-${rhel_version}`;
-        case 'redhat-container':
+        case 'redhat-container-image':
           return 'cvp';
         default:
           log('Cannot construct product verstion for', nvr, artifactType);
@@ -206,6 +297,3 @@ export const greenwave = {
     },
   },
 };
-
-export type GreenwaveContextType =
-  keyof typeof greenwave['decision']['context'];
