@@ -445,6 +445,14 @@ export const ArtifactType = new GraphQLObjectType({
       },
     },
     greenwave_decision: {
+      /**
+       * Query greenwave status only for certain artifacts.
+       *
+       * 1) When artifact has gate_tag_name
+       * 2) When artifact is redhat-container-image
+       *
+       * For other cases return emtpy answer
+       */
       type: GreenwaveDecisionType,
       resolve(parentValue, args, context, info) {
         log(
@@ -452,9 +460,16 @@ export const ArtifactType = new GraphQLObjectType({
           parentValue.aid,
           parentValue.type,
         );
-        // https://www.graphql-tools.com/docs/schema-delegation/
         const isScratch = _.get(parentValue, 'payload.scratch', true);
         if (isScratch) {
+          return {};
+        }
+        const gate_tag_name: string | undefined =
+          parentValue?.payload?.gate_tag_name;
+        if (
+          _.isEmpty(gate_tag_name) &&
+          parentValue.type !== 'redhat-container-image'
+        ) {
           return {};
         }
         var item = _.get(
@@ -466,8 +481,6 @@ export const ArtifactType = new GraphQLObjectType({
           /* nsvc -> nvr */
           item = convertNsvcToNvr(item);
         }
-        const gate_tag_name: string | undefined =
-          parentValue?.payload?.gate_tag_name;
         const decision_context = getGreenwaveDecisionContext(parentValue);
         const rules = getGreenwaveRules(parentValue);
         const product_version = greenwave.decision.product_version(
@@ -487,6 +500,7 @@ export const ArtifactType = new GraphQLObjectType({
           subject,
           rules,
         };
+        // https://www.graphql-tools.com/docs/schema-delegation/
         return delegateToSchema({
           schema: schema,
           operation: 'query',
