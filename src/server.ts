@@ -62,7 +62,7 @@ app.use(express.json());
 app.use(
   express.urlencoded({
     extended: true,
-  })
+  }),
 );
 /**
  * Parse Cookie header and populate req.cookies && req.signedCookies
@@ -101,6 +101,7 @@ import('./routes/graphql').then(({ default: run }) => run(app));
 import('./routes/static').then(({ default: run }) => run(app));
 import('./services/kerberos').then(({ default: run }) => run());
 import('./services/db');
+import('./services/teiid');
 
 log(' [i] Using port: %s', cfg.port);
 
