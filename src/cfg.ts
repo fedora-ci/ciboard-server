@@ -223,9 +223,11 @@ export interface Cfg {
     collections: {
       artifacts: {
         name: string;
+        indexes: [{ keys: any; options: any }];
       };
       components: {
         name: string;
+        indexes: [{ keys: any; options: any }];
       };
       metadata: {
         name: string;
