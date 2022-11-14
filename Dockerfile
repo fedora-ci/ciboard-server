@@ -2,7 +2,7 @@ FROM registry.access.redhat.com/ubi8/nodejs-14
 ARG ADDPKGS=""
 ARG NPMLOCATION="open"
 USER root
-RUN yum install -y "krb5-workstation" $ADDPKGS && \
+RUN yum install -y "krb5-workstation" "postgresql" $ADDPKGS && \
     yum clean all -y
 COPY rhcachain.crt "$HOME/"
 RUN trust anchor --store "${HOME}/rhcachain.crt"
