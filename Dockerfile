@@ -14,6 +14,7 @@ COPY "assets" "$HOME/assets/"
 COPY "package.json" "package-lock.json" "env.sh" "tsconfig.json" "$HOME/"
 RUN echo "Use location: $NPMLOCATION"
 COPY ".npmrcs/$NPMLOCATION" ".npmrc"
+RUN chmod a+w "$HOME/package-lock.json"
 
 # USER doesn't impact on COPY
 USER 1001
