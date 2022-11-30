@@ -26,7 +26,7 @@ import _ from 'lodash';
 import {
   ArtifactModel,
   isArtifactBrewBuild,
-  isArtifactRedhatContainerImage,
+  isArtifactRedHatContainerImage,
   isArtifactRedHatModule,
 } from '../services/db_interface';
 
@@ -195,7 +195,7 @@ type GreenwaveRuleType = {
 export const getGreenwaveRules = (
   artifact: ArtifactModel,
 ): GreenwaveRuleType[] => {
-  if (isArtifactRedhatContainerImage(artifact)) {
+  if (isArtifactRedHatContainerImage(artifact)) {
     /*
      * https://issues.redhat.com/browse/RHELWF-7827
      * https://code.engineering.redhat.com/gerrit/plugins/gitiles/errata-rails/+/refs/heads/master/lib/brew/import/builds.rb#57
