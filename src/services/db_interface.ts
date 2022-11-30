@@ -47,7 +47,7 @@ export type ArtifactTypes =
   /**
    * PR from https://src.osci.redhat.com/
    */
-  | ArtifactTypeDistGitPR
+  | ArtifactTypeDistGitPr
   /**
    * MBS builds from https://mbs.engineering.redhat.com/
    */
@@ -263,7 +263,7 @@ export interface ArtifactBaseModel {
 
 export type ArtifactTypeBrewBuild = 'brew-build';
 export type ArtifactTypeKojiBuild = 'koji-build';
-export type ArtifactTypeDistGitPR = 'dist-git-pr';
+export type ArtifactTypeDistGitPr = 'dist-git-pr';
 export type ArtifactTypeRedHatModule = 'redhat-module';
 export type ArtifactTypeFedoraModule = 'fedora-module';
 export type ArtifactTypeProductMDCompose = 'productmd-compose';
@@ -280,7 +280,7 @@ export type ArtifactModelKojiBuild = ArtifactBaseModel & {
 };
 
 export type ArtifactModelDistGitPR = ArtifactBaseModel & {
-  type: ArtifactTypeDistGitPR;
+  type: ArtifactTypeDistGitPr;
   payload: PayloadDistGitPR;
 };
 
@@ -331,7 +331,7 @@ export function isArtifactCompose(
 ): artifact is ArtifactModelProductMDCompose {
   return artifact.type === 'productmd-compose';
 }
-export function isArtifactRedhatContainerImage(
+export function isArtifactRedHatContainerImage(
   artifact: ArtifactModel,
 ): artifact is ArtifactModelRedhatContainerImage {
   return artifact.type === 'redhat-container-image';
