@@ -1,4 +1,5 @@
-FROM registry.access.redhat.com/ubi8/nodejs-14
+# Based on https://github.com/sclorg/s2i-nodejs-container
+FROM quay.io/sclorg/nodejs-18-c8s
 ARG ADDPKGS=""
 ARG NPMLOCATION="open"
 USER root
