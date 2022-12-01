@@ -1,4 +1,5 @@
-FROM registry.access.redhat.com/ubi8/nodejs-14
+# Based on https://github.com/sclorg/s2i-nodejs-container
+FROM quay.io/sclorg/nodejs-18-c8s
 ARG ADDPKGS=""
 ARG NPMLOCATION="open"
 USER root
@@ -13,6 +14,7 @@ COPY "assets" "$HOME/assets/"
 COPY "package.json" "package-lock.json" "env.sh" "tsconfig.json" "$HOME/"
 RUN echo "Use location: $NPMLOCATION"
 COPY ".npmrcs/$NPMLOCATION" ".npmrc"
+RUN chmod a+w "$HOME/package-lock.json"
 
 # USER doesn't impact on COPY
 USER 1001
