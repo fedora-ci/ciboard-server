@@ -99,6 +99,12 @@ properties:
               examples:
                 - Some meaningful info
               type: string
+      waive_message:
+        description: Warning message that will be displayed in waive form
+        examples:
+          - 'Waiving test results may have an impact on the RHEL release process. 
+            Broken builds can lead to broken RHEL composes and unverified or failed builds can cause issues in system integration...'
+        type: string
       contact:
         description: 'Partially based on: https://pagure.io/fedora-ci/messages/blob/master/f/schemas/contact.yaml'
         type: object
