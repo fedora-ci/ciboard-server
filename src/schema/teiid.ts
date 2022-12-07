@@ -31,7 +31,7 @@ import {
 } from 'graphql';
 import { getTeiidClient } from '../services/teiid';
 
-const log = debug('osci:root_query_type');
+const log = debug('osci:teiid');
 
 export const TeiidETLinkedAdvisories = new GraphQLObjectType({
   name: 'TeiidLinkedErrata',
