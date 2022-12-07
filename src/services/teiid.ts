@@ -61,7 +61,7 @@ export const getTeiidClient = _.memoize(_getClient);
   FROM
         Errata_public.errata_main c
   WHERE
-	      c.id=(SELECT MAX(id) FROM Errata_public.errata_main)
+        c.id=(SELECT MAX(id) FROM Errata_public.errata_main)
   LIMIT 1`;
   const client = await getTeiidClient();
   if (!client) {
