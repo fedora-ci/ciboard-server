@@ -198,7 +198,8 @@ class DBCollection<TSchema extends Document = Document> {
 
   async cfg_indexes(): Promise<void> {
     this.log('Configure indexes.');
-    const indexes_config = _.get(cfg.db.collections[this.cfg_entry], 'indexes');
+    const collection_config = cfg.db.collections[this.cfg_entry];
+    const indexes_config = 'indexes' in collection_config ? collection_config.indexes : undefined;
     if (_.isNil(indexes_config)) {
       this.log('Skip indexes config. No configuration for indexes.');
       return;
