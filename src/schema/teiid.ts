@@ -64,10 +64,12 @@ export const TeiidETLinkedAdvisories = new GraphQLObjectType({
 });
 
 /* Put limit just to prevent DoS, with correct arguments there cannot be so much linked errata */
-const mkTeiidQueryETLinkedAdvisories = (nvrs: string[]) => {
-  const nvrsQuoted = _.map(nvrs, (nvr) => `'${nvr}'`);
+const mkTeiidQueryETLinkedAdvisories = (nvrs: string[]): string => {
+  // https://www.postgresql.org/docs/current/sql-syntax-lexical.html
+  // 4.1.2.1. String Constants
+  const nvrsQuoted = _.map(nvrs, (nvr) => `'${_.replace(nvr, /'/g, "''")}'`);
   const qs = _.join(nvrsQuoted, ', ');
-  return `
+  const query = `
 SELECT          
         c1.nvr, c1.id,
         c2.errata_id,
@@ -79,7 +81,7 @@ FROM
         Errata_public.product_versions c3,
         Errata_public.errata_main c4
 WHERE
-        c1.nvr IN (${qs})
+        c1.nvr in (${qs})
         AND
         c1.id=c2.brew_build_id
         AND
@@ -88,6 +90,7 @@ WHERE
         c2.errata_id=c4.id
 LIMIT 200
 `;
+  return query;
 };
 
 const TeiidETLinkedAdvisoriesMapping = {
