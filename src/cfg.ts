@@ -281,6 +281,16 @@ export interface Cfg {
   metadata: {
     rw_groups: { set: string[] };
   };
+  teiid: {
+    client_config: {
+      host: string;
+      port: number;
+      user: string;
+      password: string;
+      database: string;
+      ssl: boolean;
+    };
+  };
 }
 
 const cfg = getcfg();

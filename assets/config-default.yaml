@@ -90,6 +90,14 @@ metadata:
     set:
       # http://localhost:5000/current_user
       - Employee
+teiid:
+  client_config:
+    host: virtualdb.engineering.redhat.com
+    port: '5432'
+    user: osci
+    password: ~
+    database: public
+    ssl: true
 
 env_to_config_map:
   port: SRV_PORT
@@ -169,3 +177,11 @@ env_to_config_map:
       set:
         # use new line to separate
         - SRV_METADATA_RW_GROUPS
+  teiid:
+    client_config:
+      host: SRV_TEIID_CLIENT_HOST
+      port: SRV_TEIID_CLIENT_PORT
+      user: SRV_TEIID_CLIENT_USER
+      password: SRV_TEIID_CLIENT_PASSWORD
+      database: SRV_TEIID_CLIENT_DB
+      ssl: SRV_TEIID_CLIENT_SSL
