@@ -28,7 +28,7 @@ import debug from 'debug';
 import assert from 'assert';
 import { getcfg, TKnownType, known_types } from '../cfg';
 
-const log = debug('osci:teiid');
+const log = debug('osci:services/teiid');
 const cfg = getcfg();
 
 import { Client, ClientConfig } from 'pg';
@@ -44,9 +44,13 @@ export async function _getClient(): Promise<Client | undefined> {
     client = new Client(config);
     await client.connect();
   } catch (error) {
+    log(
+      ' [E] cannot initialize collection to Teiid. Continue running. Any query on Teiid will fail.',
+    );
     if (_.isError(error)) {
       log(' [w] Teiid connection: ', error.message);
     }
+    return;
   }
   return client;
 }
