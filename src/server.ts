@@ -28,7 +28,7 @@ import passport from 'passport';
  */
 import cookieParser from 'cookie-parser';
 import cookieSession from 'cookie-session';
-import expressPino from 'express-pino-logger';
+import expressPino from 'pino-http';
 
 import { getcfg } from './cfg';
 import logger from './pino_logger';
