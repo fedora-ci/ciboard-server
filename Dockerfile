@@ -1,28 +1,38 @@
 # Based on https://github.com/sclorg/s2i-nodejs-container
 FROM quay.io/sclorg/nodejs-18-c8s
-ARG ADDPKGS=""
-ARG NPMLOCATION="open"
+
+# Additional packages to install before the build.
+ARG ADDPKGS=
+# npm mirror to use to install dependencies.
+ARG NPMLOCATION=open
+
 USER root
-RUN yum install -y "krb5-workstation" "postgresql" $ADDPKGS && \
-    yum clean all -y
-COPY rhcachain.crt "$HOME/"
-RUN trust anchor --store "${HOME}/rhcachain.crt"
-# OSCI-2964
-RUN sed -i -e '/dns_canonicalize_hostname/d;/^\[libdefaults\]/a\ \ dns_canonicalize_hostname = fallback' /etc/krb5.conf
-COPY "src" "$HOME/src/"
-COPY "assets" "$HOME/assets/"
-COPY "package.json" "package-lock.json" "env.sh" "tsconfig.json" "$HOME/"
-RUN echo "Use location: $NPMLOCATION"
-COPY ".npmrcs/$NPMLOCATION" ".npmrc"
+RUN dnf install --assumeyes krb5-workstation postgresql $ADDPKGS && \
+    dnf clean all --assumeyes && \
+    # OSCI-2964 \
+    sed --in-place -e '/dns_canonicalize_hostname/d;/^\[libdefaults\]/a\ \ dns_canonicalize_hostname = fallback' /etc/krb5.conf
+
+COPY rhcachain.crt ./
+RUN trust anchor --store "$HOME/rhcachain.crt"
+
+COPY assets/ $HOME/assets/
+COPY src/ $HOME/src/
+COPY package.json package-lock.json env.sh tsconfig.json $HOME/
+COPY .npmrcs/$NPMLOCATION .npmrc
 RUN chmod a+w "$HOME/package-lock.json"
 
 # USER doesn't impact on COPY
 USER 1001
-RUN ["bash","-c", "--", "npm install"]
-RUN ["bash","-c", "--", "npm run build"]
+
+WORKDIR $HOME
+RUN echo "Using npm location: $NPMLOCATION" && \
+    npm install && \
+    npm run build && \
+    rm -rf node_modules
+
 # Provide defaults for an executing container
 # Later, helm-chart will set 'NPM_RUN' variable to 'start:server'
-CMD ["bash","-c", "--", "$STI_SCRIPTS_PATH/run"]
+CMD ["$STI_SCRIPTS_PATH/run"]
 
 # Local debug
 #
