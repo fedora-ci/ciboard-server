@@ -1,0 +1,29 @@
+name: Check build
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18.x]
+    steps:
+      - name: Check out sources
+        uses: actions/checkout@v3
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Install build dependencies
+        run: npm install
+
+      - name: Compile TypeScript
+        run: npx tsc --noEmit
+
+      - name: Run tests
+        run: npm test
