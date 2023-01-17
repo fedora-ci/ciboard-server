@@ -32,7 +32,7 @@ RUN echo "Using npm location: $NPMLOCATION" && \
 
 # Provide defaults for an executing container
 # Later, helm-chart will set 'NPM_RUN' variable to 'start:server'
-CMD ["$STI_SCRIPTS_PATH/run"]
+CMD ["/bin/sh", "-c", "--", "$STI_SCRIPTS_PATH/run"]
 
 # Local debug
 #
