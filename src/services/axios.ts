@@ -18,12 +18,11 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-import axios, { AxiosInstance } from 'axios';
+import axios, { AxiosInstance, RawAxiosRequestHeaders } from 'axios';
 import debug from 'debug';
 import kerberos from 'kerberos';
 import axios_debug_log from 'axios-debug-log';
 import { URL } from 'url';
-import { reduceRight } from 'lodash';
 
 const { getcfg } = require('../cfg');
 const cfg = getcfg();
@@ -58,8 +57,8 @@ const addKrbAuth = (axiosinst: AxiosInstance) => {
       }
       const url = new URL(config.url, config.baseURL);
       const serviceName = `HTTP@${url.hostname}`;
-      var token;
-      var client;
+      let client;
+      let token;
       try {
         client = await kerberos.initializeClient(serviceName);
         token = await client.step('');
@@ -68,13 +67,16 @@ const addKrbAuth = (axiosinst: AxiosInstance) => {
         throw new axios.Cancel('Request was canceled. Kerberos auth failed.');
       }
       log('Add krb auth for request to: %s, %s', serviceName, config.url);
-      const header = 'Negotiate ' + token;
-      config.headers.authorization = header;
+      if (!config.headers) {
+        config.headers = {};
+      }
+      const authHeader = `Negotiate ${token}`;
+      (config.headers as RawAxiosRequestHeaders)['Authorization'] = authHeader;
       return config;
     },
     (error) => {
       return Promise.reject(error);
-    }
+    },
   );
 };
 
