@@ -54,65 +54,6 @@ for (const cfgpath of OVERRIDE_CFG_LOOKUP_PATHS) {
   log(cfgpath);
 }
 
-export const old_mk_config_from_env: any = _.flow(
-  _.identity,
-  _.toPairs,
-  _.partialRight(
-    _.map,
-    _.cond([
-      [
-        _.flow([_.last, _.isArray]),
-        _.flow([
-          _.over([
-            _.head,
-            _.flow(
-              _.last,
-              _.head,
-              _.partial(_.get, process.env, _, undefined),
-              _.cond([
-                [_.isUndefined, _.stubArray],
-                [
-                  _.stubTrue,
-                  _.flow(_.ary(_.trim, 1), _.partial(_.split, _, '\n')),
-                ],
-              ]),
-            ),
-          ]),
-          _.cond([
-            [_.flow([_.last, _.size]), _.identity],
-            [_.stubTrue, _.noop],
-          ]),
-        ]),
-      ],
-      [
-        _.flow([_.last, _.isPlainObject]),
-        _.flow([
-          _.over([_.head, _.flow(_.last, (o) => old_mk_config_from_env(o))]),
-          _.cond([
-            [_.flow([_.last, _.size]), _.identity],
-            [_.stubTrue, _.noop],
-          ]),
-        ]),
-      ],
-      [
-        _.stubTrue,
-        _.flow([
-          _.over([
-            _.head,
-            _.flow(_.last, _.partial(_.get, process.env, _, undefined)),
-          ]),
-          _.cond([
-            [_.flow([_.last, _.isString]), _.identity],
-            [_.stubTrue, _.noop],
-          ]),
-        ]),
-      ],
-    ]),
-  ),
-  _.compact,
-  _.fromPairs,
-);
-
 export const mk_config_from_env = (envToConfigMap?: object): object | undefined => {
   if (!envToConfigMap) return;
   const entries = Object.entries(envToConfigMap);
