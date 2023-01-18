@@ -27,8 +27,7 @@ USER 1001
 WORKDIR $HOME
 RUN echo "Using npm location: $NPMLOCATION" && \
     npm install && \
-    npm run build && \
-    rm -rf node_modules
+    npm run build
 
 # Provide defaults for an executing container
 # Later, helm-chart will set 'NPM_RUN' variable to 'start:server'
