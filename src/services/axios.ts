@@ -67,11 +67,8 @@ const addKrbAuth = (axiosinst: AxiosInstance) => {
         throw new axios.Cancel('Request was canceled. Kerberos auth failed.');
       }
       log('Add krb auth for request to: %s, %s', serviceName, config.url);
-      if (!config.headers) {
-        config.headers = {};
-      }
       const authHeader = `Negotiate ${token}`;
-      (config.headers as RawAxiosRequestHeaders)['Authorization'] = authHeader;
+      config.headers['Authorization'] = authHeader;
       return config;
     },
     (error) => {
