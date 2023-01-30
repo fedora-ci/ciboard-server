@@ -2,6 +2,33 @@
 
 ![Check build](https://github.com/fedora-ci/ciboard-server/actions/workflows/build.yaml/badge.svg)
 
+## Architecture
+
+The following diagram lays out the high-level architecture of CI Dashboard and its component packages:
+
+```mermaid
+graph TB
+
+umb-listener --> bus[Message bus]:::outside
+
+subgraph kaijs
+umb-listener[UMB listener] --> queue[Filesystem queue]
+fedmsg-listener[fedmsg listener] --> queue
+Loader --> queue
+end
+
+Loader --> db[MongoDB]
+server["ciboard-server<br>(backend)"]:::focus --> db
+ciboard["ciboard<br>(frontend)"] --> server
+
+click ciboard "https://github.com/fedora-ci/ciboard/" "ciboard GitHub repositotry" _blank
+click server "https://github.com/fedora-ci/ciboard-server/" "ciboard-server GitHub repositotry" _blank
+click kaijs "https://github.com/fedora-ci/kaijs/" "kaijs GitHub repositotry" _blank
+
+classDef focus stroke-width: 4
+classDef outside stroke-dasharray: 4
+```
+
 ## Enviroment setup
 
 Install certificates
