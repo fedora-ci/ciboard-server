@@ -1,5 +1,7 @@
 # CI Dashboard Server for CentOS Stream, Fedora, and other builds
 
+![Check build](https://github.com/fedora-ci/ciboard-server/actions/workflows/build.yaml/badge.svg)
+
 ## Enviroment setup
 
 Install certificates
@@ -52,9 +54,13 @@ SRV_DB_URL='mongodb://root:passwordrootmongodb@127.0.0.1' DEBUG="osci:*" npm run
 **Optional step:** use official read only database `SRV_DB_URL` provided by OSCI team:
 
 ```bash
-RV_DB_DB_NAME="oscidashboard" SRV_DB_URL='mongodb://oscidashboardro_user:XXXXX@dbproxy01.dba-001.prod.iad2.dc.redhat.com:32701/oscidashboard?authSource=admin&tls=true&tlsInsecure=true&replicaSet=mongoshared7&directConnection=true' DEBUG="osci:*" npm run dev:server
+SRV_DB_DB_NAME="oscidashboard" SRV_DB_URL='mongodb://oscidashboardro_user:XXXXX@dbproxy01.dba-001.prod.iad2.dc.redhat.com:32701/oscidashboard?authSource=admin&tls=true&tlsInsecure=true&replicaSet=mongoshared7&directConnection=true' DEBUG="osci:*" npm run dev:server
 ```
 
 ## Code style
 
 In this project we follow the  [Google TypeScript Style Guide](https://google.github.io/styleguide/tsguide.html).
+
+## License
+
+This project is licensed under the LGPLv3 License or later - see the  [LICENSE](/COPYING)  file for details
