@@ -42,7 +42,7 @@
     "passport-saml": "^3.2.4",
     "pg": "^8.8.0",
     "pino": "^8.9.0",
-    "pino-http": "^8.3.1",
+    "pino-http": "^8.3.3",
     "pino-pretty": "^9.1.1",
     "retry": "^0.13.1",
     "tmp": "^0.2.1",
