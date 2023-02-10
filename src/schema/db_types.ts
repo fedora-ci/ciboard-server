@@ -44,6 +44,7 @@ import {
   getGreenwaveDecisionContext,
   getGreenwaveRules,
 } from './greenwave_types';
+import { ErrataToolAutomationStateType } from './eta_types';
 
 const debug = require('debug');
 const log = debug('osci:db_types');
@@ -510,6 +511,9 @@ export const ArtifactType = new GraphQLObjectType({
           info,
         });
       },
+    },
+    states_eta: {
+      type: new GraphQLList(ErrataToolAutomationStateType),
     },
   }),
 });
