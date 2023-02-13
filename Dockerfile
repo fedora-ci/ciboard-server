@@ -20,6 +20,8 @@ COPY src/ $HOME/src/
 COPY package.json package-lock.json env.sh tsconfig.json $HOME/
 COPY .npmrcs/$NPMLOCATION .npmrc
 RUN chmod a+w "$HOME/package-lock.json"
+# cache folder contains root-owned files, due to a bug in npm, previous versions of npm which has since been addressed.
+RUN chown -R 1001:0 "$HOME/.npm"
 
 # USER doesn't impact on COPY
 USER 1001
