@@ -1,7 +1,7 @@
 /*
  * This file is part of ciboard-server
 
- * Copyright (c) 2022 Andrei Stepanov <astepano@redhat.com>
+ * Copyright (c) 2022, 2023 Andrei Stepanov <astepano@redhat.com>
  * 
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -43,6 +43,16 @@ export async function _getClient(): Promise<Client | undefined> {
   try {
     client = new Client(config);
     await client.connect();
+    client.on('error', (err) => {
+      /*
+       * https://node-postgres.com/apis/client#error :
+       * When the client is in the process of connecting, dispatching a query, or disconnecting it will catch
+       * and foward errors from the PostgreSQL server to the respective client.connect client.query or client.end callback/promise;
+       * however, the client maintains a long-lived connection to the PostgreSQL back-end and due to network partitions,
+       * back-end crashes, fail-overs, etc the client can (and over a long enough time period will) eventually be disconnected while it is idle.
+       */
+      log(' [E] Long-lived connection to the PostgreSQL failed.', err.stack);
+    });
   } catch (error) {
     log(
       ' [E] cannot initialize collection to Teiid. Continue running. Any query on Teiid will fail.',
