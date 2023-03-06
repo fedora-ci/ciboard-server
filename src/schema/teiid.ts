@@ -1,7 +1,7 @@
 /*
  * This file is part of ciboard-server
 
- * Copyright (c) 2022 Andrei Stepanov <astepano@redhat.com>
+ * Copyright (c) 2022, 2023 Andrei Stepanov <astepano@redhat.com>
  * 
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -113,13 +113,30 @@ export const teiidQueryETLinkedAdvisories: GraphQLFieldConfig<any, any> = {
   description: 'Returns a list of linked Errata for the build.',
   async resolve(_parentValue, args, _context, _info) {
     const { nvrs } = args;
+    log(' [i] get linked ET advisories for %s', nvrs);
     const client = await getTeiidClient();
     if (!client) {
       log(' [w] cannot init connection to Teiid. Continue running.');
       return;
     }
     const query = mkTeiidQueryETLinkedAdvisories(nvrs);
-    const res = await client.query(query);
+    let res;
+    try {
+      res = await client.query(query);
+    } catch (err) {
+      console.error(
+        'Query to TEIID failed for nvrs: %s. Ignoring.: ',
+        nvrs,
+        _.toString(err),
+      );
+      /*
+       * We do not close or manage the failed connection.
+       * `pg` library automatically manages all connections over pg-pool.
+       * https://node-postgres.com/apis/pool
+       * graphql-client will handle this exception automatically, details about the error will be delivered to the client.
+       */
+      throw err;
+    }
     if (!_.size(res.rows)) {
       log(' [i] Empty reply for query: %s', query);
       return;
