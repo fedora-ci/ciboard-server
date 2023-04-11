@@ -182,14 +182,10 @@ class DBCollection<TSchema extends Document = Document> {
       this.collection = this.db.collection<TSchema>(this.collection_name);
       this.log('Connected successfully to collection.');
       /** Db is no longer the place to listen to events, you should listen to your MongoClient. */
-      let event: keyof MongoClientEvents = 'close';
-      this.mongo_client.on(event, on_close);
-      event = 'error';
-      this.mongo_client.on(event, on_error);
-      event = 'timeout';
-      this.mongo_client.on(event, on_timeout);
-      event = 'commandFailed';
-      this.mongo_client.on(event, on_commandFailed);
+      this.mongo_client.on('close', on_close);
+      this.mongo_client.on('error', on_error);
+      this.mongo_client.on('timeout', on_timeout);
+      this.mongo_client.on('commandFailed', on_commandFailed);
     } catch (err) {
       this.mongo_client.close();
       throw err;
