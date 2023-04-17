@@ -45,6 +45,8 @@ import {
   getGreenwaveRules,
 } from './greenwave_types';
 import { ErrataToolAutomationStateType } from './eta_types';
+import { MetadataConsolidatedType } from './metadata_types';
+import { getOSVersionFromNvr } from '../services/misc';
 
 const debug = require('debug');
 const log = debug('osci:db_types');
@@ -289,6 +291,45 @@ const StateType = new GraphQLObjectType({
           return loadXunitFromUrl(xunit);
         }
         return xunit;
+      },
+    },
+    custom_metadata: {
+      description:
+        'Custom metadata associated with the state provided by the CI system maintainer',
+      type: MetadataConsolidatedType,
+      async resolve(parentValue: ArtifactState, _args, context, info) {
+        const testcase_name = parentValue.kai_state.test_case_name;
+        // The metadata_consolidated query requires the test case name to be non-null.
+        if (!testcase_name) return null;
+        // Guess product version from the NVR.
+        const { nvr, type } = parentValue.broker_msg_body.artifact;
+        // Currently, only RPM and module builds are supported.
+        if (!['brew-build', 'redhat-module'].includes(type)) {
+          log(
+            'Artifact type %s not supported for test metadata delegation',
+            type,
+          );
+          return null;
+        }
+        const product_version = `rhel-${getOSVersionFromNvr(nvr, type)}`;
+
+        log(
+          'Delegating metadata query for state: testcase %s, product %s',
+          testcase_name,
+          product_version,
+        );
+
+        return await delegateToSchema({
+          schema,
+          operation: 'query',
+          fieldName: 'metadata_consolidated',
+          args: {
+            testcase_name,
+            product_version,
+          },
+          context,
+          info,
+        });
       },
     },
   }),
