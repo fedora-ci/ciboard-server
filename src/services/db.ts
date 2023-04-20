@@ -471,6 +471,16 @@ export class Metadata extends DBCollection<MetadataModel> {
     };
   };
 
+  aggregate = async (params: Document[]): Promise<Document[]> => {
+    if (_.isUndefined(this.collection)) {
+      throw new Error('Connection is not initialized');
+    }
+    const cursor = this.collection.aggregate(params);
+    const retrivedMetadata = await cursor.toArray();
+    await cursor.close();
+    return retrivedMetadata;
+  };
+
   find = async (params: Filter<MetadataModel>): Promise<MetadataModel[]> => {
     if (_.isUndefined(this.collection)) {
       throw new Error('Connection is not initialized');

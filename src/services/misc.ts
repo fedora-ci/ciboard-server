@@ -59,10 +59,11 @@ export const getOSVersionFromTag = (
 };
 
 export function customMerge(presentVaule: any, newValue: any) {
-  if (_.isArray(presentVaule) && _.isArray(newValue) && _.isEmpty(newValue)) {
-    return presentVaule;
-  }
-  if (_.isString(presentVaule) && _.isString(newValue) && _.isEmpty(newValue)) {
+  if (
+    ((_.isArray(presentVaule) && _.isArray(newValue)) ||
+      (_.isString(presentVaule) && _.isString(newValue))) &&
+    _.isEmpty(newValue)
+  ) {
     return presentVaule;
   }
   /**
