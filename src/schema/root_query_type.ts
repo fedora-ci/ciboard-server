@@ -847,10 +847,18 @@ const RootQuery = new GraphQLObjectType({
               },
             };
             const query: Filter<MetadataModel> = { $expr: testcaseName };
+            /*
+             * If `product_version` is specified, query for empty product as well and
+             * merge the results (with the product-specific values taking precedence).
+             */
             if (_.has(args, 'product_version')) {
-              query.product_version = product_version;
+              query.product_version = { $in: [null, product_version] };
             }
-            const docs = await col.find(query);
+            const docs = await col.find([
+              { $match: query },
+              // Make sure empty product comes first.
+              { $sort: { product_version: 1 } },
+            ]);
             const mergedMetadata = _.mergeWith(
               {},
               ..._.map(docs, 'payload'),
