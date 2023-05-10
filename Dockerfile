@@ -12,7 +12,7 @@ RUN dnf install --assumeyes krb5-workstation postgresql $ADDPKGS && \
     dnf clean all --assumeyes
 
 # OSCI-4966
-COPY linux-krb5.conf /etc/
+COPY linux-krb5.conf /etc/krb5.conf
 RUN sed -i -e '/default_ccache_name/d' -e '/^\[libdefaults/a\ \ default_ccache_name = FILE:/tmp/krb5cc_%{uid}' /etc/krb5.conf 
 
 COPY rhcachain.crt ./
