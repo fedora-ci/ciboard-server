@@ -14,6 +14,7 @@
   "license": "LGPL-3.0-or-later",
   "dependencies": {
     "@graphql-tools/delegate": "^9.0.35",
+    "@sentry/node": "^7.51.2",
     "ajv": "^8.12.0",
     "ajv-formats": "^2.1.1",
     "axios": "^1.4.0",
