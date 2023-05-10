@@ -8,9 +8,10 @@ ARG NPMLOCATION=open
 
 USER root
 RUN dnf install --assumeyes krb5-workstation postgresql $ADDPKGS && \
-    dnf clean all --assumeyes && \
-    # OSCI-2964 \
-    sed --in-place -e '/dns_canonicalize_hostname/d;/^\[libdefaults\]/a\ \ dns_canonicalize_hostname = fallback' /etc/krb5.conf
+    dnf clean all --assumeyes
+
+# OSCI-4966
+COPY linux-krb5.conf /etc/
 
 COPY rhcachain.crt ./
 RUN trust anchor --store "$HOME/rhcachain.crt"
