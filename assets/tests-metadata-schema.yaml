@@ -102,7 +102,7 @@ properties:
       waive_message:
         description: Warning message that will be displayed in waive form
         examples:
-          - 'Waiving test results may have an impact on the RHEL release process. 
+          - 'Waiving test results may have an impact on the RHEL release process.
             Broken builds can lead to broken RHEL composes and unverified or failed builds can cause issues in system integration...'
         type: string
       contact:
@@ -152,6 +152,12 @@ properties:
             description: Google chat room
             examples:
               - 'https://chat.google.com/room/Adwq9XDoM/ci-6Lnomc_s'
+            type: string
+            format: uri
+          slack_channel_url:
+            description: Slack channel URL
+            examples:
+              - 'https://example.slack.com/archives/T12Z1Z1XYZ9'
             type: string
             format: uri
           report_issue_url:

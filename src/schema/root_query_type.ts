@@ -214,7 +214,7 @@ const RootQuery = new GraphQLObjectType({
             /* axios.get can throw exception, if we are here then no exception */
             const data = response.data?.data;
             assert.ok(_.isArray(data), 'Exptected array reply');
-            return data as typeof GraphQLJSON[];
+            return data as (typeof GraphQLJSON)[];
           },
         },
         /**
@@ -847,15 +847,28 @@ const RootQuery = new GraphQLObjectType({
               },
             };
             const query: Filter<MetadataModel> = { $expr: testcaseName };
+            /*
+             * If `product_version` is specified, query for empty product as well and
+             * merge the results (with the product-specific values taking precedence).
+             */
             if (_.has(args, 'product_version')) {
-              query.product_version = product_version;
+              query.product_version = { $in: [null, product_version] };
             }
-            const docs = await col.find(query);
-            const mergedMetadata = _.mergeWith(
-              {},
-              ..._.map(docs, 'payload'),
-              customMerge,
-            );
+            const payloads = await col.aggregate([
+              { $match: query },
+              /*
+               * Prefer specific product version over general (empty), then lower priority
+               * over higher priority number.
+               */
+              { $sort: { product_version: 1, priority: -1 } },
+              /*
+               * Pull the payload from within each result as we don't care about any of the
+               * other data (id, priority, etc.) further on.
+               */
+              { $replaceWith: '$payload' },
+            ]);
+            // Merge matching metadata, respecting product version and priority order.
+            const mergedMetadata = _.mergeWith({}, ...payloads, customMerge);
             return { payload: mergedMetadata };
           },
         },
