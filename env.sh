@@ -1,6 +1,8 @@
 #!/bin/bash
 # production
 # export NODE_ENV="${NODE_ENV:-development}"
+# export SENTRY_DSN="${SENTRY_DSN}"
+# export SENTRY_ENVIRONMENT="${SENTRY_ENVIRONMENT:-development}"
 # export SRV_PORT="${SRV_PORT:-}"
 # export SRV_COOKIE_KEY="${SRV_COOKIE_KEY:-}" ~
 # export SRV_AUTH_ENABLED="${SRV_AUTH_ENABLED:-}"

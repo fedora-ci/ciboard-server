@@ -1,18 +1,18 @@
 /*
  * This file is part of ciboard-server
-
+ *
  * Copyright (c) 2021, 2022 Andrei Stepanov <astepano@redhat.com>
- * 
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 3 of the License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
@@ -22,6 +22,7 @@ import cors from 'cors';
 import debug from 'debug';
 import express from 'express';
 import passport from 'passport';
+import * as Sentry from '@sentry/node';
 
 /**
  * express midleware to parse req.body in POST.
@@ -45,6 +46,33 @@ var cookieSessionCfg: CookieSessionInterfaces.CookieSessionOptions = {
 };
 
 const app = express();
+
+/*
+ * Enable Sentry integration. For more details on the Express.js integration
+ * and set up, see the documentation:
+ * https://docs.sentry.io/platforms/node/guides/express/
+ */
+Sentry.init({
+  integrations: [
+    // Enable HTTP calls tracing.
+    new Sentry.Integrations.Http({ tracing: true }),
+    // Enable Express.js middleware tracing.
+    new Sentry.Integrations.Express({ app }),
+    // Automatically instrument Node.js libraries and frameworks.
+    ...Sentry.autoDiscoverNodePerformanceMonitoringIntegrations(),
+  ],
+  // Capture 1/4 of transactions for performance monitoring.
+  tracesSampleRate: 0.25,
+});
+
+/*
+ * RequestHandler creates a separate execution context, so that
+ * transactions are isolated across requests.
+ */
+app.use(Sentry.Handlers.requestHandler());
+// TracingHandler creates a trace for every incoming request.
+app.use(Sentry.Handlers.tracingHandler());
+
 app.use(cors());
 if (app.get('env') === 'development') {
   app.set('view options', { pretty: true });
@@ -102,6 +130,12 @@ import('./routes/static').then(({ default: run }) => run(app));
 import('./services/kerberos').then(({ default: run }) => run());
 import('./services/db');
 import('./services/teiid');
+
+/*
+ * The Sentry error handler must be enabled before any other error
+ * middleware but after all controllers.
+ */
+app.use(Sentry.Handlers.errorHandler());
 
 log(' [i] Using port: %s', cfg.port);
 

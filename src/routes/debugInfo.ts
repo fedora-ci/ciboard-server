@@ -26,4 +26,8 @@ export default (app: Express) => {
     var answ = printify(req);
     res.send(answ);
   });
+
+  app.get('/debug/sentry', (req, res) => {
+    throw new Error('Testing backend Sentry integration.');
+  });
 };
