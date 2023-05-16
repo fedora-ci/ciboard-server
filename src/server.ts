@@ -32,7 +32,8 @@ import cookieSession from 'cookie-session';
 import expressPino from 'pino-http';
 
 import { getcfg } from './cfg';
-import logger from './pino_logger';
+import { logger } from './logger';
+
 const log = debug('osci:server');
 const cfg = getcfg();
 
