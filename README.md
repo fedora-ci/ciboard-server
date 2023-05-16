@@ -33,11 +33,11 @@ classDef outside stroke-dasharray: 4
 
 Install certificates
 
- ```bash
+```bash
 yum install https://hdn.corp.redhat.com/rhel8-csb/RPMS/noarch/redhat-internal-cert-install-0.1-28.el7.noarch.rpm
 ```
 
- Install globally npmrc and create config file
+Install globally npmrc and create config file
 
 ```bash
 npm install -g npmrc
@@ -51,28 +51,28 @@ npmrc osci
 
 To set up server process this steps:
 
- 1. Clone repo
+1.  Clone repo
 
- 2. Run `npm install`
+2.  Run `npm install`
 
- 3. Configure `env-devel.sh` file:
+3.  Configure `env-devel.sh` file:
 
 ```bash
-#!/bin/bash  
-# development  
-export SRV_KOJI_BREW_HOST="brewhub.engineering.redhat.com"  
-export SRV_DISTGIT_RH_BASE_URL="http://pkgs.devel.redhat.com"  
-export SRV_GREENWAVE_URL='https://greenwave.engineering.redhat.com'  
-export SRV_WAIVERDB_URL='https://waiverdb.engineering.redhat.com'
+#!/bin/bash
+# development
+export SRV_KOJI_BREW_HOST="brewhub.engineering.redhat.com"
+export SRV_DISTGIT_RH_BASE_URL="http://pkgs.devel.redhat.com"
+export SRV_GREENWAVE_URL="https://greenwave.engineering.redhat.com"
+export SRV_WAIVERDB_URL="https://waiverdb.engineering.redhat.com"
 ```
 
- 4. Setup container running MongoDB:
+4.  Setup container running MongoDB:
 
 ```bash
 podman run -p 27017:27017 -e MONGODB_USERNAME=user -e MONGODB_PASSWORD=password -e MONGODB_DATABASE=ci-messages -e MONGODB_ROOT_PASSWORD=passwordrootmongodb bitnami/mongodb:latest
 ```
 
- 5. Start the server:
+5.  Start the server:
 
 ```bash
 SRV_DB_URL='mongodb://root:passwordrootmongodb@127.0.0.1' DEBUG="osci:*" npm run dev:server
@@ -98,8 +98,8 @@ If the DSN is not specified, messages are only logged to the console.
 
 ## Code style
 
-In this project we follow the  [Google TypeScript Style Guide](https://google.github.io/styleguide/tsguide.html).
+In this project we follow the [Google TypeScript Style Guide](https://google.github.io/styleguide/tsguide.html).
 
 ## License
 
-This project is licensed under the LGPLv3 License or later - see the  [LICENSE](/COPYING)  file for details
+This project is licensed under the LGPLv3 License or later - see the [LICENSE](/COPYING) file for details
