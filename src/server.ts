@@ -51,6 +51,9 @@ const app = express();
  * Enable Sentry integration. For more details on the Express.js integration
  * and set up, see the documentation:
  * https://docs.sentry.io/platforms/node/guides/express/
+ * Note: The Sentry DSN is read automatically from the environment variable
+ * SENTRY_DSN, as specified in the DeploymentConfig. If no DSN is specified,
+ * this integration does nothing.
  */
 Sentry.init({
   integrations: [
@@ -61,8 +64,6 @@ Sentry.init({
     // Automatically instrument Node.js libraries and frameworks.
     ...Sentry.autoDiscoverNodePerformanceMonitoringIntegrations(),
   ],
-  // Capture 1/4 of transactions for performance monitoring.
-  tracesSampleRate: 0.25,
 });
 
 /*
