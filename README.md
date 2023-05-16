@@ -84,6 +84,18 @@ SRV_DB_URL='mongodb://root:passwordrootmongodb@127.0.0.1' DEBUG="osci:*" npm run
 SRV_DB_DB_NAME="oscidashboard" SRV_DB_URL='mongodb://oscidashboardro_user:XXXXX@dbproxy01.dba-001.prod.iad2.dc.redhat.com:32701/oscidashboard?authSource=admin&tls=true&tlsInsecure=true&replicaSet=mongoshared7&directConnection=true' DEBUG="osci:*" npm run dev:server
 ```
 
+## Sentry integration
+
+CI Dashboard outputs all log messages to the console. In addition to this, it is able to report runtime as well as GraphQL directly to Sentry. To specify the [Sentry DSN](https://docs.sentry.io/product/sentry-basics/dsn-explainer/) and [environment identifier](https://docs.sentry.io/product/sentry-basics/environments/), use the `SENTRY_DSN` and `SENTRY_ENVIRONMENT` environment variables. You can specify these in your `env.sh` or `env-devel.sh` file, for example:
+
+```bash
+# ...
+export SENTRY_DSN=https://1cafe2cafe3cafe@example.sentry.io/9999999
+export SENTRY_ENVIRONMENT=production
+```
+
+If the DSN is not specified, messages are only logged to the console.
+
 ## Code style
 
 In this project we follow the  [Google TypeScript Style Guide](https://google.github.io/styleguide/tsguide.html).
