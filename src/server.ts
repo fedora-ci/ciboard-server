@@ -32,7 +32,7 @@ import cookieSession from 'cookie-session';
 import expressPino from 'pino-http';
 
 import { getcfg } from './cfg';
-import { logger } from './logger';
+import { logger, sentryBeforeSend } from './logger';
 
 const log = debug('osci:server');
 const cfg = getcfg();
@@ -57,6 +57,7 @@ const app = express();
  * this integration does nothing.
  */
 Sentry.init({
+  beforeSend: sentryBeforeSend,
   integrations: [
     // Enable HTTP calls tracing.
     new Sentry.Integrations.Http({ tracing: true }),

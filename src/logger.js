@@ -25,6 +25,13 @@ const pino = require('pino');
 const pinoPretty = require('pino-pretty');
 const pinoSentry = require('pino-sentry');
 
+export const sentryBeforeSend = (event) => {
+  if (event.request?.cookies) {
+    delete event.request.cookies;
+  }
+  return event;
+};
+
 /*
  * Pretty-print log messages to the console-using pino-pretty. In addition
  * to that, forward warnings (and higher-level messages) to Sentry, if enabled.
@@ -45,7 +52,12 @@ const pinoStreams = pino.multistream([
 /**
  * off, fatal, error, warn, info, debug, trace
  */
-export const logger = pino.pino({}, pinoStreams);
+export const logger = pino.pino(
+  {
+    beforeSend: sentryBeforeSend,
+  },
+  pinoStreams,
+);
 
 /**
  * https://wildwolf.name/easy-way-to-make-pino-and-debug-work-together/
