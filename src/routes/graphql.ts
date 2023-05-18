@@ -18,8 +18,9 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+import _ from 'lodash';
 import { Express } from 'express';
-import { graphqlHTTP } from 'express-graphql';
+import { createHandler } from 'graphql-http/lib/use/express';
 import * as graphql from 'graphql';
 
 import { logger } from '../logger';
@@ -28,10 +29,13 @@ import schema from '../schema/schema';
 export default (app: Express) => {
   app.use(
     '/graphql',
-    graphqlHTTP({
-      customFormatErrorFn(error) {
-        // Report the error to console as a warning.
-        const errorString = graphql.printError(error);
+    createHandler({
+      formatError(error) {
+        let errorString = error.message;
+        if (!_.isError(error)) {
+          // Report the error to console as a warning.
+          errorString = graphql.printError(error as graphql.GraphQLError);
+        }
         logger.warn(`GraphQL error: ${errorString}`);
 
         // Pass through the error object itself unchanged.
@@ -41,7 +45,7 @@ export default (app: Express) => {
        * graphiql -- only available in delevelopment environment
        * Allows run queries agains development server
        */
-      graphiql: true,
+      // graphiql: true,
       schema,
     }),
   );
