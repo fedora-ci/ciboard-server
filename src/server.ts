@@ -65,6 +65,7 @@ Sentry.init({
     // Automatically instrument Node.js libraries and frameworks.
     ...Sentry.autoDiscoverNodePerformanceMonitoringIntegrations(),
   ],
+  release: process.env.CIBOARD_SERVER_GIT_COMMIT || 'custom-build',
 });
 
 /*

@@ -5,6 +5,10 @@ FROM quay.io/sclorg/nodejs-18-c8s
 ARG ADDPKGS=
 # npm mirror to use to install dependencies.
 ARG NPMLOCATION=open
+# Upstream Git commit from which this image is being built.
+ARG GITCOMMIT=
+
+ENV CIBOARD_SERVER_GIT_COMMIT $GITCOMMIT
 
 USER root
 RUN dnf install --assumeyes krb5-workstation postgresql $ADDPKGS && \
@@ -20,11 +24,17 @@ COPY package.json package-lock.json env.sh tsconfig.json $HOME/
 COPY .npmrcs/$NPMLOCATION .npmrc
 RUN chmod a+w "$HOME/package-lock.json"
 
+
 # USER doesn't impact on COPY
 USER 1001
 
 WORKDIR $HOME
-RUN echo "Using npm location: $NPMLOCATION" && \
+RUN if [ -z "$GITCOMMIT" ]; then \
+        echo "Custom build from local repo"; \
+    else \
+        echo "Building from commit $GITCOMMIT"; \
+    fi && \
+    echo "Using npm location: $NPMLOCATION" && \
     npm install && \
     npm run build && \
     # cache folder contains root-owned files, due to a bug in npm, \
