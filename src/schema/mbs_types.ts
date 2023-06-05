@@ -128,7 +128,8 @@ const commitResolver: graphql.GraphQLFieldResolver<any, {}, any> = async (
   const { scmurl } = parentValue;
   const { instance } = args;
   const nameWithCommit = _.last(_.split(scmurl, 'modules/'));
-  const [repoName, sha1] = _.split(nameWithCommit, '?#');
+  const [repoNameDotGit, sha1] = _.split(nameWithCommit, '?#');
+  const repoName = _.replace(repoNameDotGit, /.git$/, '');
   if (!repoName || !sha1) {
     throw new Error(
       `Could not parse repo name and commit from URL '${scmurl}'`,
