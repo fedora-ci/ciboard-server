@@ -45,7 +45,12 @@ const pinoStreams = pino.multistream([
 /**
  * off, fatal, error, warn, info, debug, trace
  */
-export const logger = pino.pino({}, pinoStreams);
+export const logger = pino.pino(
+  {
+    level: 'debug', // this MUST be set at the lowest level of the destinations
+  },
+  pinoStreams,
+);
 
 /**
  * https://wildwolf.name/easy-way-to-make-pino-and-debug-work-together/
