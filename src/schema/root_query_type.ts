@@ -27,19 +27,11 @@ import assert from 'assert';
 import { URL } from 'url';
 import * as graphql from 'graphql';
 import GraphQLJSON from 'graphql-type-json';
-import { Document, Filter, ObjectId } from 'mongodb';
 
 import { getcfg, greenwave_cfg, waiverdb_cfg } from '../cfg';
 import {
-  QueryOptions,
-  getCollection,
-  Artifacts,
-  Components,
-  Metadata,
-} from '../services/db';
-import {
-  KojiQueryHistoryRawResponse,
   koji_query,
+  KojiQueryHistoryRawResponse,
   transformKojiHistoryResponse,
 } from '../services/kojibrew';
 import * as mbs from '../services/mbs';
@@ -64,7 +56,7 @@ import {
   WaiverDBWaiverType,
   WaiverDBWaiversType,
   WaiverDBPermissionsType,
-} from './waiverdb_types';
+} from './waiverdb';
 
 import {
   CommitObject,
@@ -84,8 +76,6 @@ import {
 
 import { SSTInfoType, SSTListType } from './sst_types';
 
-import { ArtifactsType } from './db_types';
-
 import {
   KojiHistoryType,
   KojiTaskInfoType,
@@ -96,14 +86,21 @@ import {
 import { MbsBuildType, MbsInstanceInputType } from './mbs_types';
 import {
   AuthZMappingType,
+  metadataConsolidated,
   MetadataConsolidatedType,
   MetadataRawType,
-} from './metadata_types';
-import { MetadataModel } from '../services/db_interface';
-import { customMerge } from '../services/misc';
+} from './metadata';
 import _static from '../routes/static';
-import { getTeiidClient } from '../services/teiid';
 import { teiidQueryETLinkedAdvisories } from './teiid';
+import {
+  QueryOptions,
+  artifactChildren,
+  makeRequestParamsArtifacts,
+  getArtifacts,
+  querySstList,
+} from './artifacts';
+import { ApiResponse, RequestParams } from '@opensearch-project/opensearch/.';
+import { printify } from '../services/printify';
 
 const GreenwaveWaiverRuleInputType = new GraphQLInputObjectType({
   name: 'GreenwaveWaiverRuleInputType',
@@ -118,47 +115,6 @@ const GreenwaveWaiverSubjectInputType = new GraphQLInputObjectType({
   fields: () => ({
     item: { type: GraphQLString },
     type: { type: GraphQLString },
-  }),
-});
-
-const ArtifactsOptionsInputType = new GraphQLInputObjectType({
-  name: 'ArtifactsOptionsInputType',
-  fields: () => ({
-    skipScratch: { type: GraphQLBoolean },
-    reduced: {
-      type: GraphQLBoolean,
-      description: `
-            Frontend can list a table of artifacts.
-            Gated artifacts can have many CI runs, each of them can have xunit.
-            This results that each such artifact weights megabytes.
-            To speed-up load artifacts in fronted drop most heavy-weight fields.
-            They can be loaded after, if user want's to examine it more close.
-            `,
-    },
-    valuesAreRegex1: {
-      type: GraphQLBoolean,
-      defaultValue: false,
-      description: 'dbFieldValues1 hold regexs rather exact values',
-    },
-    valuesAreRegex2: {
-      type: GraphQLBoolean,
-      defaultValue: false,
-      description: 'dbFieldValues2 hold regexs rather exact values',
-    },
-    valuesAreRegex3: {
-      type: GraphQLBoolean,
-      defaultValue: false,
-      description: 'dbFieldValues3 hold regexs rather exact values',
-    },
-    valuesAreRegexComponentMapping1: {
-      type: GraphQLBoolean,
-      defaultValue: false,
-      description: 'dbFieldValuesMapping1 hold regexs rather exact values',
-    },
-    componentMappingProductId: {
-      type: GraphQLInt,
-      description: 'If specified query collection: components_mapping',
-    },
   }),
 });
 
@@ -673,205 +629,7 @@ const RootQuery = new GraphQLObjectType({
             return commit_obj;
           },
         },
-        artifacts: {
-          type: ArtifactsType,
-          args: {
-            aid_offset: {
-              type: GraphQLString,
-              description: 'Artifact ID to start lookup from. Not inclusive.',
-            },
-            limit: {
-              type: GraphQLInt,
-              description: 'Return no more then requested number.',
-            },
-            atype: {
-              type: new GraphQLNonNull(GraphQLString),
-              description:
-                'The type of artefact, one of: brew-build, koji_build, copr-build, redhat-module, productmd-compose.',
-            },
-            dbFieldName1: {
-              type: GraphQLString,
-              description: 'First name of field in DB.',
-            },
-            dbFieldName2: {
-              type: GraphQLString,
-              description: 'Second name of field in DB.',
-            },
-            dbFieldName3: {
-              type: GraphQLString,
-              description: 'Third name of field in DB.',
-            },
-            dbFieldNameComponentMapping1: {
-              type: GraphQLString,
-              description: 'First name of field in mapping table.',
-            },
-            dbFieldValues1: {
-              type: new GraphQLList(GraphQLString),
-              description:
-                'List of artifact values for dbFieldName. For example: if dbFieldName=="aid" than: taskID for brew-build and koji_build, mbs id for redhat-module.',
-            },
-            dbFieldValues2: {
-              type: new GraphQLList(GraphQLString),
-            },
-            dbFieldValues3: {
-              type: new GraphQLList(GraphQLString),
-            },
-            dbFieldValuesComponentMapping1: {
-              type: new GraphQLList(GraphQLString),
-            },
-            options: {
-              type: ArtifactsOptionsInputType,
-              description: 'A list of options that impacts on search results.',
-            },
-          },
-          async resolve(parentValue, args, context, info) {
-            var has_next = false;
-            const args_default = {
-              /**
-               * limit works only for regex, and is ignored for set of specific aid.
-               */
-              limit: cfg.db.limit_default,
-              options: {},
-            };
-            const args_with_default: QueryOptions = _.defaultsDeep(
-              args,
-              args_default,
-            );
-            const { atype, limit } = args_with_default;
-            const add_path: string[][] = [];
-            log('Requested: %o', args_with_default);
-            const collection = await getCollection(Artifacts);
-            const cursor = await collection.mk_cursor(args_with_default);
-            var artifacts: Array<Document>;
-            try {
-              artifacts = await cursor.toArray();
-            } catch (err) {
-              console.error(
-                'Failed to run cursor for request: %s. Ignoring.: ',
-                args_with_default,
-                _.toString(err),
-              );
-              if (_.isError(err)) {
-                /* close() is promise, ignore result */
-                cursor.close();
-                return;
-              } else {
-                throw err;
-              }
-            }
-            log(
-              ' [i] fetched artifacts of type %s aids: %o',
-              atype,
-              _.map(artifacts, 'aid'),
-            );
-            _.forEach(artifacts, (artifact) =>
-              _.forEach(add_path, ([pathold, pathnew]) =>
-                _.set(artifact, pathnew, _.get(artifact, pathold)),
-              ),
-            );
-            /**
-             * Check if has next for query:
-             */
-            if (artifacts.length && artifacts.length === limit) {
-              const aid_offset = _.last(artifacts)?.aid;
-              /**
-               * Check if has_more for regex case
-               */
-              const args = {
-                ...args_with_default,
-                limit: 1,
-                aid_offset,
-              };
-              const collection = await getCollection(Artifacts);
-              const cursor = await collection.mk_cursor(args);
-              const artifact_next = await cursor.toArray();
-              has_next = artifact_next.length ? true : false;
-              log('aid_offset == %s, has_next == %s', aid_offset, has_next);
-              /**
-               * close() is promise, ignore result
-               */
-              cursor.close();
-            }
-            return {
-              artifacts,
-              has_next,
-            };
-          },
-        },
-        db_sst_list: {
-          args: {
-            product_id: {
-              type: GraphQLInt,
-              description:
-                'Return results only for specified product id. RHEL 9: 604, RHEL: 8: 370',
-            },
-          },
-          type: new GraphQLList(GraphQLString),
-          description: 'List know SST teams.',
-          async resolve(_parentValue, args, _context, _info) {
-            const { product_id } = args;
-            const collection = await getCollection(Components);
-            return await collection.db_list_sst(product_id);
-          },
-        },
-        metadata_consolidated: {
-          args: {
-            testcase_name: {
-              type: new GraphQLNonNull(GraphQLString),
-              description:
-                'Exact testcase name. Example: osci.brew-build./plans/tier1-internal.functional',
-            },
-            product_version: {
-              type: GraphQLString,
-              description:
-                /* product version == greenwave product_version */
-                'Narrow metadata only for specific product version, including common metadata. Example: rhel-8. If not specified, show for all available products.',
-            },
-          },
-          type: MetadataConsolidatedType,
-          description: 'Returns consolidated metadata for specified testcase.',
-          async resolve(_parentValue, args, _context, _info) {
-            const { testcase_name, product_version } = args;
-            const col = await getCollection(Metadata);
-            const testcaseName = {
-              $cond: {
-                if: { $eq: ['$testcase_name_is_regex', true] },
-                then: {
-                  $regexMatch: {
-                    input: testcase_name,
-                    regex: '$testcase_name',
-                    options: 'i',
-                  },
-                },
-                else: { $eq: ['$testcase_name', testcase_name] },
-              },
-            };
-            const query: Filter<MetadataModel> = { $expr: testcaseName };
-            /*
-             * If `product_version` is specified, query for empty product as well and
-             * merge the results (with the product-specific values taking precedence).
-             */
-            if (_.has(args, 'product_version')) {
-              query.product_version = { $in: [null, product_version] };
-            }
-            const payloads = await col.aggregate([
-              { $match: query },
-              /*
-               * Prefer specific product version over general (empty), then lower priority
-               * over higher priority number.
-               */
-              { $sort: { product_version: 1, priority: -1 } },
-              /*
-               * Pull the payload from within each result as we don't care about any of the
-               * other data (id, priority, etc.) further on.
-               */
-              { $replaceWith: '$payload' },
-            ]);
-            // Merge matching metadata, respecting product version and priority order.
-            const mergedMetadata = _.mergeWith({}, ...payloads, customMerge);
-            return { payload: mergedMetadata };
-          },
-        },
+        metadata_consolidated: {},
         metadata_raw: {
           args: {
             _id: {
@@ -888,19 +646,20 @@ const RootQuery = new GraphQLObjectType({
           type: new GraphQLList(MetadataRawType),
           description: 'Returns a list of raw metadata.',
           async resolve(_parentValue, args, _context, _info) {
-            const col = await getCollection(Metadata);
-            const query: Filter<MetadataModel> = _.omit(args, [
-              '_id',
-              'testcase_name',
-            ]);
-            if (_.has(args, '_id')) {
-              query._id = new ObjectId(args._id);
-            }
-            if (_.isString(args.testcase_name)) {
-              query.testcase_name = new RegExp(args.testcase_name, 'i');
-            }
-            const doc = await col.find(query);
-            return doc;
+            //   const col = await getCollection(Metadata);
+            //    const query: Filter<MetadataModel> = _.omit(args, [
+            //       '_id',
+            //       'testcase_name',
+            //     ]);
+            //     if (_.has(args, '_id')) {
+            //       query._id = new ObjectId(args._id);
+            //     }
+            //     if (_.isString(args.testcase_name)) {
+            //       query.testcase_name = new RegExp(args.testcase_name, 'i');
+            //     }
+            //     const doc = await col.find(query);
+            //     return doc;
+            return {};
           },
         },
         authz_mapping: {
@@ -921,7 +680,13 @@ const RootQuery = new GraphQLObjectType({
           },
         },
       },
-      { teiid_et_linked_advisories: teiidQueryETLinkedAdvisories },
+      {
+        sstList: querySstList,
+        artifacts: getArtifacts,
+        artifact_children: artifactChildren,
+        metadataConsolidated: metadataConsolidated,
+        teiid_et_linked_advisories: teiidQueryETLinkedAdvisories,
+      },
     ),
 });
 

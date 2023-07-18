@@ -18,9 +18,11 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-module.exports = function printify(obj) {
-  var cache = [];
-  function circular_ok(key, value) {
+import _ from 'lodash';
+
+export const printify = (obj: any): string => {
+  var cache: any[] = [];
+  function circular_ok(_key: string, value: any) {
     if (typeof value === 'object' && value !== null) {
       if (cache.indexOf(value) !== -1) {
         return;
@@ -29,6 +31,16 @@ module.exports = function printify(obj) {
     }
     return value;
   }
-  var answer = JSON.stringify(obj, circular_ok);
-  return JSON.parse(answer);
+  /** JSON.stringify does not preserve any of the not-owned properties and not-enumerable properties of the object */
+  return JSON.stringify(
+    _.defaultsDeep(
+      undefined,
+      _.toPlainObject(obj),
+      _.pick(obj, Object.getOwnPropertyNames(obj)),
+    ),
+    circular_ok,
+    2,
+  );
 };
+
+export default printify;

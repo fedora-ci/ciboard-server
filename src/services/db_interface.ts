@@ -18,7 +18,9 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-import { ObjectId } from 'mongodb';
+import _ from 'lodash';
+import { getcfg } from '../cfg';
+const cfg = getcfg();
 
 /**
  * All artifacts are uniquelly identified by
@@ -69,6 +71,39 @@ export type ArtifactTypes =
 export const atype_to_hub_map = {
   'koji-build': 'fedoraproject',
   'koji-build-cs': 'centos-stream',
+};
+
+export const getIndexName = (aType: string | undefined): string => {
+  /**
+   * Based on query:
+   * GET _cat/indices/dev-*?v=true&s=index
+   */
+  const indexesPrefix = cfg.opensearch.indexes_prefix;
+  let indexName;
+  if (aType === 'brew-build') {
+    indexName = 'redhat-rpm';
+  } else if (aType === 'redhat-module') {
+    indexName = 'redhat-module';
+  } else if (aType === 'koji-build-cs') {
+    indexName = 'centos-rpm';
+  } else if (aType === 'koji-build') {
+    indexName = 'fedora-rpm';
+  } else if (aType === 'productmd-compose') {
+    indexName = 'redhat-compose';
+  } else if (aType === 'redhat-container-image') {
+    indexName = 'redhat-container-image';
+  } else if (aType === 'copr-build') {
+    indexName = 'fedora-copr';
+  } else if (aType === 'fedora-module') {
+    indexName = 'redhat-module';
+  }
+  if (indexName) {
+    return `${indexesPrefix}${indexName}`;
+  }
+  if (aType) {
+    throw new Error(`[E] Cannot get index name for artifact type: ${aType}`);
+  }
+  return `${indexesPrefix}redhat-*,${indexesPrefix}fedora-*,${indexesPrefix}centos-*`;
 };
 
 export interface KaiState {
@@ -241,7 +276,8 @@ export interface PayloadProductMDCompose {
 }
 
 export interface ArtifactBaseModel {
-  _id: ObjectId;
+  // XXX _id: ObjectId;
+  _id: any;
   /**
    * Common for all artifact types
    */
@@ -339,7 +375,8 @@ export function isArtifactRedHatContainerImage(
 
 export interface MetadataModel {
   /* internal id for ci-system entry */
-  _id: ObjectId;
+  // XXX _id: ObjectId;
+  _id: any;
   /**
    * Reqiured. MongoDB provides no out-of-the-box concurrency controls. For supporting concurrency is using a document version
    */
@@ -368,7 +405,8 @@ export interface MetadataModel {
 }
 
 export interface ComponentsModel {
-  _id: ObjectId;
+  // XXX _id: ObjectId;
+  _id: any;
   /**
    * Reqiured. MongoDB provides no out-of-the-box concurrency controls. For supporting concurrency is using a document version
    */
