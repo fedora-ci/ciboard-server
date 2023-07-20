@@ -74,7 +74,7 @@ export default function (app: Express) {
       failureFlash: true,
       successRedirect: '/',
       failureRedirect: '/login',
-    })
+    }),
   );
 
   /**
@@ -93,11 +93,14 @@ export default function (app: Express) {
     /**
      * This will be called after passport.authenticate('saml')
      */
-    redirectBack
+    (req, res) => redirectBack(req, res),
   );
 
-  app.get('/logout', function (req, res) {
-    redirectBack(req, res);
+  app.get('/logout', function (req, res, next) {
+    req.logout({}, (err) => {
+      if (err) return next(err);
+      redirectBack(req, res);
+    });
   });
 
   app.get('/current_user', (req, res) => {
