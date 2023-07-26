@@ -88,6 +88,7 @@ import {
   AuthZMappingType,
   metadataConsolidated,
   MetadataConsolidatedType,
+  metadataRaw,
   MetadataRawType,
 } from './metadata';
 import _static from '../routes/static';
@@ -629,39 +630,6 @@ const RootQuery = new GraphQLObjectType({
             return commit_obj;
           },
         },
-        metadata_consolidated: {},
-        metadata_raw: {
-          args: {
-            _id: {
-              type: GraphQLID,
-              description: 'Fetch only metadata for entry with ID',
-            },
-            testcase_name: {
-              type: GraphQLString,
-              description:
-                /* product version == greenwave product_version */
-                'Regex for testcase_name field.',
-            },
-          },
-          type: new GraphQLList(MetadataRawType),
-          description: 'Returns a list of raw metadata.',
-          async resolve(_parentValue, args, _context, _info) {
-            //   const col = await getCollection(Metadata);
-            //    const query: Filter<MetadataModel> = _.omit(args, [
-            //       '_id',
-            //       'testcase_name',
-            //     ]);
-            //     if (_.has(args, '_id')) {
-            //       query._id = new ObjectId(args._id);
-            //     }
-            //     if (_.isString(args.testcase_name)) {
-            //       query.testcase_name = new RegExp(args.testcase_name, 'i');
-            //     }
-            //     const doc = await col.find(query);
-            //     return doc;
-            return {};
-          },
-        },
         authz_mapping: {
           type: AuthZMappingType,
           description: 'Returns an object of allowed actions for user.',
@@ -681,10 +649,15 @@ const RootQuery = new GraphQLObjectType({
         },
       },
       {
+        // Sst
         sstList: querySstList,
+        // Artifacts
         artifacts: getArtifacts,
         artifact_children: artifactChildren,
+        // Metadata
+        metadataRaw: metadataRaw,
         metadataConsolidated: metadataConsolidated,
+        // Teiid
         teiid_et_linked_advisories: teiidQueryETLinkedAdvisories,
       },
     ),

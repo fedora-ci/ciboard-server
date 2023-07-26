@@ -58,23 +58,6 @@ export const getOSVersionFromTag = (
   return match[1];
 };
 
-export function customMerge(presentVaule: any, newValue: any) {
-  if (
-    ((_.isArray(presentVaule) && _.isArray(newValue)) ||
-      (_.isString(presentVaule) && _.isString(newValue))) &&
-    _.isEmpty(newValue)
-  ) {
-    return presentVaule;
-  }
-  /**
-   * Return: undefined
-   * If customizer returns undefined, merging is handled by the method instead:
-   * Source properties that resolve to undefined are skipped if a destination value exists.
-   * Array and plain object properties are merged recursively.
-   * Other objects and value types are overridden by assignment.
-   */
-}
-
 export const getOSVersionFromNvr = (
   nvr: string,
   artifactType: string,
