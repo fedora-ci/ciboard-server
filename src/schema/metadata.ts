@@ -18,12 +18,23 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-import _ from 'lodash';
+import _, { entriesIn } from 'lodash';
 import * as graphql from 'graphql';
+import {
+  GraphQLInt,
+  GraphQLString,
+  GraphQLBoolean,
+  GraphQLObjectType,
+} from 'graphql';
 import debug from 'debug';
 import util from 'util';
 import { GraphQLJSON } from 'graphql-type-json';
-import { GraphQLFieldConfig, GraphQLID } from 'graphql';
+import {
+  GraphQLFieldConfig,
+  GraphQLID,
+  GraphQLList,
+  GraphQLNonNull,
+} from 'graphql';
 
 import printify from '../services/printify';
 import { getcfg } from '../cfg';
@@ -36,8 +47,47 @@ import { ApiResponse, RequestParams } from '@opensearch-project/opensearch/.';
 const log = debug('osci:metadata_types');
 const cfg = getcfg();
 
-const { GraphQLInt, GraphQLString, GraphQLBoolean, GraphQLObjectType } =
-  graphql;
+const metadataFilter = (
+  testcaseName: string,
+  productVersion: string | undefined,
+  metadataEntry: UpdateMetadataArgs,
+) => {
+  const entryProductVersion = metadataEntry.productVersion;
+  const entryTestcaseName = metadataEntry.testcaseName;
+  const entryTestcaseNameIsRegex = metadataEntry.testcaseNameIsRegex;
+  if (!entryTestcaseName) {
+    return false;
+  }
+  if (productVersion && productVersion != entryProductVersion) {
+    return false;
+  }
+  if (entryTestcaseNameIsRegex) {
+    const regex = new RegExp(entryTestcaseName);
+    if (regex.test(testcaseName)) {
+      return true;
+    }
+  } else if (entryTestcaseName === testcaseName) {
+    return true;
+  }
+  return false;
+};
+
+function customMerge(presentVaule: any, newValue: any) {
+  if (
+    ((_.isArray(presentVaule) && _.isArray(newValue)) ||
+      (_.isString(presentVaule) && _.isString(newValue))) &&
+    _.isEmpty(newValue)
+  ) {
+    return presentVaule;
+  }
+  /**
+   * Return: undefined
+   * If customizer returns undefined, merging is handled by the method instead:
+   * Source properties that resolve to undefined are skipped if a destination value exists.
+   * Array and plain object properties are merged recursively.
+   * Other objects and value types are overridden by assignment.
+   */
+}
 
 /**
  * History management is not implemented in Opensearch. In MongoDB it history was in document.
@@ -76,7 +126,7 @@ export const MetadataRawType = new GraphQLObjectType({
       type: GraphQLInt,
       description: 'Priority of this metadata.',
     },
-    product_version: {
+    productVersion: {
       type: GraphQLString,
       description: 'If present, metadata applies to specific product.',
     },
@@ -84,10 +134,10 @@ export const MetadataRawType = new GraphQLObjectType({
       type: GraphQLString,
       description: 'When the document was updated.',
     },
-    testcase_name: { type: GraphQLString, description: 'CI-system name' },
-    testcase_name_is_regex: {
+    testcaseName: { type: GraphQLString, description: 'CI-system name' },
+    testcaseNameIsRegex: {
       type: graphql.GraphQLBoolean,
-      description: 'testcase_name is encoded in regex JS regex',
+      description: 'testcaseName is encoded in regex JS regex',
     },
   }),
 });
@@ -113,9 +163,9 @@ export interface UpdateMetadataArgs {
   _id?: string;
   priority: number;
   payload?: object;
-  product_version?: string;
-  testcase_name?: string;
-  testcase_name_is_regex?: boolean;
+  productVersion?: string;
+  testcaseName?: string;
+  testcaseNameIsRegex?: boolean;
 }
 
 const makeDocumentBody = async (
@@ -129,9 +179,9 @@ const makeDocumentBody = async (
     _.omitBy(param, _.isNil),
     'payload',
     'priority',
-    'testcase_name',
-    'product_version',
-    'testcase_name_is_regex',
+    'testcaseName',
+    'productVersion',
+    'testcaseNameIsRegex',
   );
   const updated = new Date().toISOString();
   documentBody._updated = updated;
@@ -153,19 +203,19 @@ export const metadataUpdate: GraphQLFieldConfig<any, any> = {
       description:
         'CI-system personal ID, used in dashboard-DB. If empty, create a new entry for CI-system. If single _id -> remove entry.',
     },
-    testcase_name: {
+    testcaseName: {
       type: GraphQLString,
       description:
         'ResultsDB testcase. Can be regex. Check https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions for reference.',
     },
-    product_version: {
+    productVersion: {
       type: GraphQLString,
       description:
         'Narrow scope of these metadata to specific product-version. Example: rhel-8',
     },
-    testcase_name_is_regex: {
+    testcaseNameIsRegex: {
       type: GraphQLBoolean,
-      description: 'testcase_name is regex.',
+      description: 'testcaseName is regex.',
     },
     priority: {
       type: GraphQLInt,
@@ -179,8 +229,8 @@ export const metadataUpdate: GraphQLFieldConfig<any, any> = {
   async resolve(_parentValue, args, request) {
     const logref = _.compact([
       args._id,
-      args.testcase_name,
-      args.testcase_name_is_regex,
+      args.testcaseName,
+      args.testcaseNameIsRegex,
     ]).toString();
     const { user } = request;
     if (!user || !user.displayName) {
@@ -217,13 +267,9 @@ export const metadataUpdate: GraphQLFieldConfig<any, any> = {
       rwGroups,
     );
     let opensearchClient: OpensearchClient;
-    try {
-      opensearchClient = await getOpensearchClient();
-      if (_.isUndefined(opensearchClient.client)) {
-        throw new Error('Connection is not initialized');
-      }
-    } catch (err) {
-      throw err;
+    opensearchClient = await getOpensearchClient();
+    if (_.isUndefined(opensearchClient.client)) {
+      throw new Error('Connection is not initialized');
     }
     const documentId = args._id;
     const deleteDocument = _.isEmpty(_.omit(args, ['_id'])) && documentId;
@@ -249,62 +295,96 @@ export const metadataUpdate: GraphQLFieldConfig<any, any> = {
   },
 };
 
+export const makeSearchBodySst = (): RequestParams.Search => {
+  const indexesPrefix = cfg.opensearch.indexes_prefix;
+  const paramIndexName = `${indexesPrefix}metadata`;
+  const requestBodyString = `
+  {
+    "query": {
+      "match_all": {}
+    }
+  }
+  `;
+  const requestParams: RequestParams.Search = {
+    body: requestBodyString,
+    index: paramIndexName,
+  };
+  return requestParams;
+};
+
 export const metadataConsolidated: GraphQLFieldConfig<any, any> = {
+  type: MetadataConsolidatedType,
+  description: 'Returns consolidated metadata for specified testcase.',
   args: {
-    testcase_name: {
+    testcaseName: {
       type: new GraphQLNonNull(GraphQLString),
       description:
         'Exact testcase name. Example: osci.brew-build./plans/tier1-internal.functional',
     },
-    product_version: {
+    productVersion: {
       type: GraphQLString,
       description:
-        /* product version == greenwave product_version */
+        /* product version == greenwave productVersion */
         'Narrow metadata only for specific product version, including common metadata. Example: rhel-8. If not specified, show for all available products.',
     },
   },
-  type: MetadataConsolidatedType,
-  description: 'Returns consolidated metadata for specified testcase.',
   async resolve(_parentValue, args, _context, _info) {
-    const { testcase_name, product_version } = args;
-    //const col = await getCollection(Metadata);
-    const testcaseName = {
-      $cond: {
-        if: { $eq: ['$testcase_name_is_regex', true] },
-        then: {
-          $regexMatch: {
-            input: testcase_name,
-            regex: '$testcase_name',
-            options: 'i',
-          },
-        },
-        else: { $eq: ['$testcase_name', testcase_name] },
+    const { testcaseName, productVersion } = args;
+    let opensearchClient: OpensearchClient;
+    opensearchClient = await getOpensearchClient();
+    if (_.isUndefined(opensearchClient.client)) {
+      throw new Error('Connection is not initialized');
+    }
+    const searchBody: RequestParams.Search = makeSearchBodySst();
+    let result: ApiResponse = await opensearchClient.client.search(searchBody);
+    log(
+      ' [i] query -> %s -> answer -> %s',
+      printify(searchBody),
+      printify(_.omit(result.body, ['hits.hits'])),
+    );
+    /**
+     * 1. Fetch all entries to metadata entries.
+     * 2. Each entry can be a regex, based on this compare to testcaseName
+     */
+    const hitsItems = _.get(result, 'body.hits.hits', []);
+    const entries = _.map(hitsItems, _.partial(_.get, _, '_source'));
+    const relatedEntries = _.filter(
+      entries,
+      _.partial(metadataFilter, testcaseName, productVersion),
+    );
+    const sortedByPrio = _.sortBy(relatedEntries, [
+      function (o) {
+        return o.priority;
       },
-    };
-    //const query: Filter<MetadataModel> = { $expr: testcaseName };
-    /*
-     * If `product_version` is specified, query for empty product as well and
-     * merge the results (with the product-specific values taking precedence).
-     */
-    //if (_.has(args, 'product_version')) {
-    //  query.product_version = { $in: [null, product_version] };
-    // }
-    // const payloads = await col.aggregate([
-    //   { $match: query },
-    /*
-     * Prefer specific product version over general (empty), then lower priority
-     * over higher priority number.
-     */
-    //   { $sort: { product_version: 1, priority: -1 } },
-    /*
-     * Pull the payload from within each result as we don't care about any of the
-     * other data (id, priority, etc.) further on.
-     */
-    //   { $replaceWith: '$payload' },
-    //  ]);
-    // Merge matching metadata, respecting product version and priority order.
-    // const mergedMetadata = _.mergeWith({}, ...payloads, customMerge);
-    //  return { payload: mergedMetadata };
-    return {};
+    ]);
+    const payloads = _.map(sortedByPrio, _.partial(_.get, _, 'payload'));
+    const mergedMetadata = _.mergeWith({}, ...payloads, customMerge);
+    return { payload: mergedMetadata };
+  },
+};
+
+export const metadataRaw: GraphQLFieldConfig<any, any> = {
+  type: new GraphQLList(MetadataRawType),
+  description: 'Returns a list of raw metadata.',
+  args: {
+    _id: {
+      type: GraphQLString,
+      description: 'Fetch only metadata for entry with ID',
+    },
+  },
+  async resolve(_parentValue, args, _context, _info) {
+    const { _id } = args;
+    let opensearchClient: OpensearchClient;
+    opensearchClient = await getOpensearchClient();
+    if (_.isUndefined(opensearchClient.client)) {
+      throw new Error('Connection is not initialized');
+    }
+    const indexesPrefix = cfg.opensearch.indexes_prefix;
+    const paramIndexName = `${indexesPrefix}metadata`;
+    const response = await opensearchClient.client.get({
+      index: paramIndexName,
+      id: _id,
+    });
+    return _.get(response, 'body._source');
   },
 };
