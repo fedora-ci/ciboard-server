@@ -59,7 +59,8 @@ const app = express();
 Sentry.init({
   integrations: [
     // Enable HTTP calls tracing.
-    new Sentry.Integrations.Http({ tracing: true }),
+    // XXX: OSCI-5419
+    new Sentry.Integrations.Http({ tracing: false }),
     // Enable Express.js middleware tracing.
     new Sentry.Integrations.Express({ app }),
     // Automatically instrument Node.js libraries and frameworks.
