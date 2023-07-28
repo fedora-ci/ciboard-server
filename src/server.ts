@@ -59,8 +59,7 @@ const app = express();
 Sentry.init({
   integrations: [
     // Enable HTTP calls tracing.
-    // XXX: OSCI-5419
-    new Sentry.Integrations.Http({ tracing: false }),
+    new Sentry.Integrations.Http(),
     // Enable Express.js middleware tracing.
     new Sentry.Integrations.Express({ app }),
     // Automatically instrument Node.js libraries and frameworks.
@@ -74,8 +73,12 @@ Sentry.init({
  * transactions are isolated across requests.
  */
 app.use(Sentry.Handlers.requestHandler());
+/*
+ * FIXME: Disabled for now. See OSCI-5419 and the upstream issue:
+ * https://github.com/getsentry/sentry-javascript/issues/8654
+ */
 // TracingHandler creates a trace for every incoming request.
-app.use(Sentry.Handlers.tracingHandler());
+// app.use(Sentry.Handlers.tracingHandler());
 
 app.use(cors());
 if (app.get('env') === 'development') {
