@@ -23,7 +23,7 @@ const util = require('util');
 const debug = require('debug');
 const pino = require('pino');
 const pinoPretty = require('pino-pretty');
-const pinoSentry = require('pino-sentry');
+// const pinoSentry = require('pino-sentry');
 
 /*
  * Pretty-print log messages to the console-using pino-pretty. In addition
@@ -38,8 +38,9 @@ const pinoStreams = pino.multistream([
    * Note: The Sentry DSN is read automatically from the environment variable
    * SENTRY_DSN, as specified in the DeploymentConfig. If no DSN is specified,
    * this stream does nothing.
+   * FIXME: Disabled for now. See OSCI-5419.
    */
-  { stream: pinoSentry.createWriteStream(), level: 'warn' },
+  // { stream: pinoSentry.createWriteStream(), level: 'warn' },
 ]);
 
 /**

@@ -22,7 +22,7 @@ import cors from 'cors';
 import debug from 'debug';
 import express from 'express';
 import passport from 'passport';
-import * as Sentry from '@sentry/node';
+// import * as Sentry from '@sentry/node';
 
 /**
  * express midleware to parse req.body in POST.
@@ -55,7 +55,11 @@ const app = express();
  * Note: The Sentry DSN is read automatically from the environment variable
  * SENTRY_DSN, as specified in the DeploymentConfig. If no DSN is specified,
  * this integration does nothing.
+ *
+ * FIXME: Disabled for now. See OSCI-5419 and the upstream issue:
+ * https://github.com/getsentry/sentry-javascript/issues/8654
  */
+/*
 Sentry.init({
   integrations: [
     // Enable HTTP calls tracing.
@@ -67,18 +71,17 @@ Sentry.init({
   ],
   release: process.env.CIBOARD_SERVER_GIT_COMMIT || 'custom-build',
 });
+*/
 
 /*
  * RequestHandler creates a separate execution context, so that
  * transactions are isolated across requests.
  */
+/* FIXME: Disabled for now. See OSCI-5419.
 app.use(Sentry.Handlers.requestHandler());
-/*
- * FIXME: Disabled for now. See OSCI-5419 and the upstream issue:
- * https://github.com/getsentry/sentry-javascript/issues/8654
- */
 // TracingHandler creates a trace for every incoming request.
-// app.use(Sentry.Handlers.tracingHandler());
+app.use(Sentry.Handlers.tracingHandler());
+*/
 
 app.use(cors());
 if (app.get('env') === 'development') {
@@ -141,8 +144,9 @@ import('./services/teiid');
 /*
  * The Sentry error handler must be enabled before any other error
  * middleware but after all controllers.
+ * FIXME: Disabled for now. See OSCI-5419.
  */
-app.use(Sentry.Handlers.errorHandler());
+// app.use(Sentry.Handlers.errorHandler());
 
 log(' [i] Using port: %s', cfg.port);
 
