@@ -302,7 +302,8 @@ const StateType = new GraphQLObjectType({
         // The metadata_consolidated query requires the test case name to be non-null.
         if (!testcase_name) return null;
         // Guess product version from the NVR.
-        const { nvr, type } = parentValue.broker_msg_body.artifact;
+        const { nsvc, type } = parentValue.broker_msg_body.artifact;
+        let { nvr } = parentValue.broker_msg_body.artifact;
         // Currently, only RPM and module builds are supported.
         if (!['brew-build', 'redhat-module'].includes(type)) {
           log(
@@ -311,14 +312,15 @@ const StateType = new GraphQLObjectType({
           );
           return null;
         }
+        if (type === 'redhat-module') {
+          nvr = convertNsvcToNvr(nsvc);
+        }
         const product_version = `rhel-${getOSVersionFromNvr(nvr, type)}`;
-
         log(
           'Delegating metadata query for state: testcase %s, product %s',
           testcase_name,
           product_version,
         );
-
         return await delegateToSchema({
           schema,
           operation: 'query',
