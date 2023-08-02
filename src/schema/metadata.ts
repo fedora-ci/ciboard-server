@@ -295,16 +295,29 @@ export const metadataUpdate: GraphQLFieldConfig<any, any> = {
   },
 };
 
-export const makeSearchBodySst = (): RequestParams.Search => {
+export const makeSearchBodyMetadata = (
+  _id: string | undefined,
+): RequestParams.Search => {
   const indexesPrefix = cfg.opensearch.indexes_prefix;
   const paramIndexName = `${indexesPrefix}metadata`;
-  const requestBodyString = `
+  const paramId = JSON.stringify(_id);
+  const requestBodyStringAll = `
   {
     "query": {
       "match_all": {}
     }
   }
   `;
+  const requestBodyStringId = `
+  {
+    "query": {
+      "term": {
+        "_id": ${paramId}
+      }
+    }
+  }
+  `;
+  const requestBodyString = _id ? requestBodyStringId : requestBodyStringAll;
   const requestParams: RequestParams.Search = {
     body: requestBodyString,
     index: paramIndexName,
@@ -335,7 +348,7 @@ export const metadataConsolidated: GraphQLFieldConfig<any, any> = {
     if (_.isUndefined(opensearchClient.client)) {
       throw new Error('Connection is not initialized');
     }
-    const searchBody: RequestParams.Search = makeSearchBodySst();
+    const searchBody: RequestParams.Search = makeSearchBodyMetadata(undefined);
     let result: ApiResponse = await opensearchClient.client.search(searchBody);
     log(
       ' [i] query -> %s -> answer -> %s',
@@ -365,7 +378,7 @@ export const metadataConsolidated: GraphQLFieldConfig<any, any> = {
 
 export const metadataRaw: GraphQLFieldConfig<any, any> = {
   type: new GraphQLList(MetadataRawType),
-  description: 'Returns a list of raw metadata.',
+  description: 'Returns a list of known raw metadata.',
   args: {
     _id: {
       type: GraphQLString,
@@ -379,12 +392,20 @@ export const metadataRaw: GraphQLFieldConfig<any, any> = {
     if (_.isUndefined(opensearchClient.client)) {
       throw new Error('Connection is not initialized');
     }
-    const indexesPrefix = cfg.opensearch.indexes_prefix;
-    const paramIndexName = `${indexesPrefix}metadata`;
-    const response = await opensearchClient.client.get({
-      index: paramIndexName,
-      id: _id,
-    });
-    return _.get(response, 'body._source');
+    const searchBody: RequestParams.Search = makeSearchBodyMetadata(_id);
+    let result: ApiResponse = await opensearchClient.client.search(searchBody);
+    log(
+      ' [i] query -> %s -> answer -> %s',
+      printify(searchBody),
+      printify(_.omit(result.body, ['hits.hits'])),
+    );
+    const hitsItems = _.get(result, 'body.hits.hits', []);
+    const entries = _.map(hitsItems, _.partial(_.get, _, '_source'));
+    const ids = _.map(hitsItems, _.partial(_.get, _, '_id'));
+    const metadata = _.zipWith(entries, ids, (metadata, _id) =>
+      _.assign(metadata, { _id }),
+    );
+    console.log(metadata);
+    return metadata;
   },
 };
