@@ -60,7 +60,7 @@
     "@types/jest": "^29.5.3",
     "@types/js-yaml": "^4.0.5",
     "@types/kerberos": "^1.1.2",
-    "@types/lodash": "^4.14.195",
+    "@types/lodash": "^4.14.198",
     "@types/node": "^20.4.4",
     "@types/node-cron": "^3.0.8",
     "@types/pako": "^2.0.0",
