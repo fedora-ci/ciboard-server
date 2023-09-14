@@ -271,15 +271,17 @@ const cfg = getcfg();
  *
  */
 export const known_types = {
-  'brew-build': 'payload.nvr',
-  'koji-build': 'payload.nvr',
-  'koji-build-cs': 'payload.nvr',
-  'redhat-module': 'payload.nsvc',
+  'brew-build': 'nvr',
+  'koji-build': 'nvr',
+  'koji-build-cs': 'nvr',
+  'redhat-module': 'nsvc',
   // XXX: ???
   'copr-build': 'component',
   // XXX: ???
-  'productmd-compose': 'payload.compose_id',
-  'redhat-container-image': 'payload.nvr',
+  'productmd-compose': 'compose_id',
+  'redhat-container-image': 'nvr',
+  'dist-git-pr': 'xxx',
+  'fedora-module': 'nsvc',
 };
 
 export type TKnownType = keyof typeof known_types;

@@ -25,6 +25,7 @@ import { GraphQLJSON } from 'graphql-type-json';
 import _ from 'lodash';
 import {
   ArtifactModel,
+  TSearchable,
   isArtifactBrewBuild,
   isArtifactRedHatContainerImage,
   isArtifactRedHatModule,
@@ -178,7 +179,7 @@ export const GreenwavePoliciesType = new GraphQLObjectType({
 });
 
 export const getGreenwaveDecisionContext = (
-  artifact: ArtifactModel,
+  artifact: TSearchable,
 ): GreenwaveContext | undefined => {
   if (isArtifactBrewBuild(artifact)) {
     return 'osci_compose_gate';
@@ -193,7 +194,7 @@ type GreenwaveRuleType = {
 };
 
 export const getGreenwaveRules = (
-  artifact: ArtifactModel,
+  artifact: TSearchable,
 ): GreenwaveRuleType[] => {
   if (isArtifactRedHatContainerImage(artifact)) {
     /*
@@ -201,7 +202,10 @@ export const getGreenwaveRules = (
      * https://code.engineering.redhat.com/gerrit/plugins/gitiles/errata-rails/+/refs/heads/master/lib/brew/import/builds.rb#57
      * https://code.engineering.redhat.com/gerrit/plugins/gitiles/errata-rails/+/refs/heads/master/config/initializers/settings.rb#524
      */
-    if (_.includes(artifact.payload.osbs_subtypes, 'operator_bundle')) {
+    /** XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX */
+    if (
+      _.includes((artifact as any).payload.osbs_subtypes, 'operator_bundle')
+    ) {
       return [
         {
           type: 'PassingTestCaseRule',
