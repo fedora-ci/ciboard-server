@@ -40,7 +40,12 @@ import { ApiResponse, RequestParams } from '@opensearch-project/opensearch/.';
 
 import schema from './schema';
 import { printify } from '../services/printify';
-import { atype_to_hub_map, getIndexName } from '../services/db_interface';
+import {
+  canBeGated,
+  getIndexName,
+  ArtifactHitT,
+  isArtifactRedHatModule,
+} from '../services/db_interface';
 import { TKnownType, known_types, getcfg } from '../cfg';
 import { OpensearchClient, getOpensearchClient } from '../services/db';
 import {
@@ -57,10 +62,12 @@ const log = debug('osci:schema/artifacts');
 const cfg = getcfg();
 
 export type QueryOptions = {
-  from: number | undefined;
-  size: number | undefined;
-  query_string: string | undefined;
-  atype: string | undefined;
+  sortBy: string | undefined;
+  artTypes: string[] | undefined;
+  newerThen: string | undefined;
+  queryString: string | undefined;
+  paginationSize: number | undefined;
+  paginationFrom: number | undefined;
 };
 
 export type QueryArgsForArtifactChildren = {
@@ -89,14 +96,28 @@ const ComponentComponentMappingType = new GraphQLObjectType({
 export const makeRequestParamsArtifacts = (
   queryOptions: QueryOptions,
 ): RequestParams.Search => {
-  const { from, size, query_string, atype } = queryOptions;
-  const paramFrom = _.isUndefined(from) ? 0 : JSON.stringify(from);
-  const paramSize = _.isUndefined(size) ? 10 : JSON.stringify(size);
+  const {
+    sortBy,
+    artTypes,
+    newerThen,
+    queryString,
+    paginationSize,
+    paginationFrom,
+  } = queryOptions;
+  const paramFrom = _.isUndefined(paginationFrom)
+    ? 0
+    : JSON.stringify(paginationFrom);
+  const paramSize = _.isUndefined(paginationSize)
+    ? 10
+    : JSON.stringify(paginationSize);
   const paramQueryString =
-    _.isUndefined(query_string) || _.isEmpty(query_string)
+    _.isUndefined(queryString) || _.isEmpty(queryString)
       ? '"*"'
-      : JSON.stringify(query_string);
-  const paramIndexName = getIndexName(atype);
+      : JSON.stringify(queryString);
+  const paramIndexNames = _.map(artTypes, (artType) => getIndexName(artType));
+  const paramSortBy = _.isUndefined(sortBy)
+    ? '"taskId.number"'
+    : JSON.stringify(sortBy);
   const requestBody = `
   {
     "explain": false,
@@ -114,7 +135,6 @@ export const makeRequestParamsArtifacts = (
           {
             "query_string": {
               "query": ${paramQueryString},
-              "fields": ["searchable.*"],
               "lenient": true,
               "default_operator": "and",
               "analyze_wildcard": true,
@@ -132,7 +152,7 @@ export const makeRequestParamsArtifacts = (
         }
       },
       {
-        "searchable.task_id.number": {
+        ${paramSortBy}: {
           "order": "desc"
         }
       }
@@ -143,7 +163,7 @@ export const makeRequestParamsArtifacts = (
   `;
   const requestParams: RequestParams.Search = {
     body: requestBody,
-    index: paramIndexName,
+    index: paramIndexNames,
   };
   return requestParams;
 };
@@ -644,7 +664,7 @@ export const ArtifactHitType = new GraphQLObjectType({
         return reply;
       },
     },
-    greenwave_decision: {
+    greenwaveDecision: {
       /**
        * Query greenwave status only for certain artifacts.
        *
@@ -654,44 +674,34 @@ export const ArtifactHitType = new GraphQLObjectType({
        * For other cases return emtpy answer
        */
       type: GreenwaveDecisionType,
-      resolve(parentValue, args, context, info) {
-        log(
-          'Getting greenwave decision for: %s type: %s',
-          parentValue.aid,
-          parentValue.type,
-        );
-        const isScratch = _.get(parentValue, 'payload.scratch', true);
-        if (isScratch) {
-          return {};
+      resolve(parentValue: ArtifactHitT, _args, context, info) {
+        const { hit_source: hitSource, hit_info: hitInfo } = parentValue;
+        if (!canBeGated(hitSource)) {
+          log('Cannot be gated %O', hitInfo);
+          return;
         }
-        const gate_tag_name: string | undefined =
-          parentValue?.payload?.gate_tag_name;
-        if (
-          _.isEmpty(gate_tag_name) &&
-          parentValue.type !== 'redhat-container-image'
-        ) {
-          return {};
-        }
-        var item = _.get(
+        const { gateTag, aType } = hitSource;
+        log('Getting greenwave decision for: %s', aType);
+        let gatedItem = _.get(
           /* item: 'nvr', 'nsvc' */
-          parentValue,
-          nameFieldForType(parentValue.type),
+          hitSource,
+          nameFieldForType(aType),
         );
-        if (parentValue.type === 'redhat-module') {
+        if (isArtifactRedHatModule(hitSource)) {
           /* nsvc -> nvr */
-          item = convertNsvcToNvr(item);
+          gatedItem = convertNsvcToNvr(gatedItem);
         }
-        const decision_context = getGreenwaveDecisionContext(parentValue);
-        const rules = getGreenwaveRules(parentValue);
+        const decision_context = getGreenwaveDecisionContext(hitSource);
+        const rules = getGreenwaveRules(hitSource);
         const product_version = greenwave.decision.product_version(
-          item,
-          gate_tag_name,
-          parentValue.type,
+          gatedItem,
+          gateTag,
+          aType,
         );
         const subject = [
           {
-            item,
-            type: parentValue.type,
+            item: gatedItem,
+            type: aType,
           },
         ];
         const greenwaveDecisionArgs = {
@@ -700,6 +710,7 @@ export const ArtifactHitType = new GraphQLObjectType({
           subject,
           rules,
         };
+        console.log('XXXX =>>>>>>>>>>>>>>', greenwaveDecisionArgs);
         // https://www.graphql-tools.com/docs/schema-delegation/
         return delegateToSchema({
           schema: schema,
@@ -717,80 +728,46 @@ export const ArtifactHitType = new GraphQLObjectType({
   }),
 });
 
-const ArtifactsOptionsInputType = new GraphQLInputObjectType({
-  name: 'ArtifactsOptionsInputType',
-  fields: () => ({
-    skipScratch: { type: GraphQLBoolean },
-    reduced: {
-      type: GraphQLBoolean,
-      description: `
-            Frontend can list a table of artifacts.
-            Gated artifacts can have many CI runs, each of them can have xunit.
-            This results that each such artifact weights megabytes.
-            To speed-up load artifacts in fronted drop most heavy-weight fields.
-            They can be loaded after, if user want's to examine it more close.
-            `,
-    },
-    valuesAreRegexComponentMapping1: {
-      type: GraphQLBoolean,
-      defaultValue: false,
-      description: 'dbFieldValuesMapping1 hold regexs rather exact values',
-    },
-    componentMappingProductId: {
-      type: GraphQLInt,
-      description: 'If specified query collection: components_mapping',
-    },
-  }),
-});
-
 export const getArtifacts: GraphQLFieldConfig<any, any> = {
   type: ArtifactsType,
   args: {
-    atype: {
+    sortBy: {
       type: GraphQLString,
-      description: 'Artifact type.',
-    },
-    from: {
-      type: GraphQLInt,
       description: 'Starting point of the results. Used for pagination.',
     },
-    size: {
-      type: GraphQLInt,
-      description: 'Number of results to return per page. Used for pagination.',
+    artTypes: {
+      type: new GraphQLList(GraphQLString),
+      description: 'Artifact types. If omitted, then search in all indexes.',
     },
-    query_string: {
+    newerThen: {
+      type: GraphQLString,
+      description: 'Show entries no older then specified timestamp.',
+    },
+    queryString: {
       type: GraphQLString,
       description: 'Query string.',
     },
-    options: {
-      type: ArtifactsOptionsInputType,
-      description: 'A list of options that impacts on search results.',
+    paginationSize: {
+      type: GraphQLInt,
+      description: 'Number of results to return per page.',
+    },
+    paginationFrom: {
+      type: GraphQLInt,
+      description: 'Starting point of the results.',
     },
   },
   async resolve(_parentValue, args) {
     const argsDefault = {
-      /**
-       * limit works only for regex, and is ignored for set of specific aid.
-       */
-      limit: cfg.opensearch.size,
-      options: {},
+      paginationSize: cfg.opensearch.size,
     };
-    const queryOptionsWithDefaults: QueryOptions = _.defaultsDeep(
-      args,
-      argsDefault,
-    );
+    const queryOptions: QueryOptions = _.defaultsDeep(args, argsDefault);
     let opensearchClient: OpensearchClient;
-    try {
-      opensearchClient = await getOpensearchClient();
-      if (_.isUndefined(opensearchClient.client)) {
-        throw new Error('Connection is not initialized');
-      }
-    } catch (err) {
-      throw err;
+    opensearchClient = await getOpensearchClient();
+    if (_.isUndefined(opensearchClient.client)) {
+      throw new Error('Connection is not initialized');
     }
-    const requestParams: RequestParams.Search = makeRequestParamsArtifacts(
-      queryOptionsWithDefaults,
-    );
+    const requestParams: RequestParams.Search =
+      makeRequestParamsArtifacts(queryOptions);
     log(' [i] run request: %s', printify(requestParams));
     let result: ApiResponse;
     try {

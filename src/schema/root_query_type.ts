@@ -364,7 +364,7 @@ const RootQuery = new GraphQLObjectType({
                 'A list of dictionaries containing the ‘type’ and ‘test_case_name’ of an individual rule used to specify on-demand policy. For example, [{“type”:”PassingTestCaseRule”, “test_case_name”:”dist.abicheck”}, {“type”:”RemoteRule”}]. Do not use this parameter along with decision_context.',
             },
           },
-          resolve(parentValue, args) {
+          resolve(_parentValue, args) {
             if (!greenwave_cfg?.url) {
               throw new Error('Greenwave is not configured.');
             }
