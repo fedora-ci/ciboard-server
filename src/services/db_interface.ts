@@ -658,7 +658,6 @@ export function isArtifactRedHatContainerImage(
 export const canBeGated = (
   artifact: TSearchable,
 ): artifact is TSearchableGated => {
-  console.log('XX ==============>', artifact);
   if (
     isArtifactBrewBuild(artifact) ||
     isArtifactRedHatModule(artifact) ||
@@ -666,7 +665,6 @@ export const canBeGated = (
   ) {
     const gateTag = _.get(artifact, 'gateTag');
     const isScratch = _.get(artifact, 'scratch');
-    console.log('XX ==============>', gateTag, isScratch);
     return !_.isEmpty(gateTag) && !isScratch;
   }
 
