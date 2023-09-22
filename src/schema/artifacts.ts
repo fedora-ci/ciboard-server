@@ -336,7 +336,7 @@ export const artifactChildren: GraphQLFieldConfig<any, any> = {
      * Split all states in groups by thread_id
      */
     const childrenWithSameThreadId = _.values(
-      _.groupBy(hits, 'hit_source.searchable.thread_id'),
+      _.groupBy(hits, 'hit_source.threadId'),
     );
     /**
      * get the most recent state for each thread
@@ -641,7 +641,7 @@ export const ArtifactHitType = new GraphQLObjectType({
       },
       async resolve(parentValue, args, context, info) {
         const parent_doc_id = parentValue.hit_info._id;
-        const atype = parentValue.hit_source.searchable.type;
+        const atype = parentValue.hit_source.aType;
         const child_type = args.child_type ? args.child_type : undefined;
         const { onlyactual } = args;
         const artifactChildrenArgs = {
@@ -658,7 +658,7 @@ export const ArtifactHitType = new GraphQLObjectType({
           schema: schema,
           context,
           operation: 'query',
-          fieldName: 'artifact_children',
+          fieldName: 'artifactChildren',
         });
 
         return reply;

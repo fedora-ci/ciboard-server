@@ -653,7 +653,7 @@ const RootQuery = new GraphQLObjectType({
         sstList: querySstList,
         // Artifacts
         artifacts: getArtifacts,
-        artifact_children: artifactChildren,
+        artifactChildren: artifactChildren,
         // Metadata
         metadataRaw: metadataRaw,
         metadataConsolidated: metadataConsolidated,
