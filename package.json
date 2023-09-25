@@ -61,7 +61,7 @@
     "@types/js-yaml": "^4.0.5",
     "@types/kerberos": "^1.1.2",
     "@types/lodash": "^4.14.195",
-    "@types/node": "^20.4.4",
+    "@types/node": "^20.6.5",
     "@types/node-cron": "^3.0.8",
     "@types/pako": "^2.0.0",
     "@types/passport": "^1.0.11",
