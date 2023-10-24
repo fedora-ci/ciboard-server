@@ -30,11 +30,16 @@ const {
   GraphQLObjectType,
 } = graphql;
 
-import { koji_query } from '../services/kojibrew';
+import {
+  koji_query,
+  KojiQueryHistoryRawResponse,
+  transformKojiHistoryResponse,
+} from '../services/kojibrew';
+
 import { CommitObject, DistGitInstanceInputType } from './distgit_types';
 import schema from './schema';
 import { delegateToSchema } from '@graphql-tools/delegate';
-import { GraphQLNonNull } from 'graphql';
+import { GraphQLFieldConfig, GraphQLNonNull } from 'graphql';
 
 const log = debug('osci:koji_types');
 
@@ -348,3 +353,153 @@ export const KojiInstanceInputType = new graphql.GraphQLEnumType({
     cs: { value: 'centos_stream' },
   },
 });
+
+export const queryKojiBuildTagsByNvr: GraphQLFieldConfig<any, any> = {
+  type: new GraphQLList(KojiBuildTagsType),
+  description: 'Retrieve list of all active tags of a Koji build given its NVR',
+  args: {
+    nvr: {
+      type: new GraphQLNonNull(GraphQLString),
+      description: "The build's NVR to look up",
+    },
+    instance: {
+      type: KojiInstanceInputType,
+      description: 'Koji hub name',
+      defaultValue: 'fedoraproject',
+    },
+  },
+  async resolve(parentValue, args) {
+    const { nvr, instance } = args;
+    log('Query %s for listTags. NVR : %s', instance, nvr);
+    const reply = await koji_query(instance, 'listTags', nvr);
+    log('Koji reply: %o', reply);
+    return reply;
+  },
+};
+
+export const queryKojiBuildTags: GraphQLFieldConfig<any, any> = {
+  type: new GraphQLList(KojiBuildTagsType),
+  description:
+    'Retrieve list of all active tags of a Koji build given its Build ID',
+  args: {
+    build_id: {
+      type: new GraphQLNonNull(GraphQLInt),
+      description: 'Build id to lookup',
+    },
+    instance: {
+      type: KojiInstanceInputType,
+      description: 'Koji hub name',
+      defaultValue: 'fedoraproject',
+    },
+  },
+  async resolve(parentValue, args) {
+    const { build_id, instance } = args;
+    log('Query %s for listTags. Build id : %s', instance, build_id);
+    const reply = await koji_query(instance, 'listTags', build_id);
+    log('Koji reply: %o', reply);
+    return reply;
+  },
+};
+
+export const queryKojiBuild: GraphQLFieldConfig<any, any> = {
+  type: KojiBuildInfoType,
+  args: {
+    build_id: {
+      type: new GraphQLNonNull(GraphQLInt),
+      description: 'Build id to lookup',
+    },
+    instance: {
+      type: KojiInstanceInputType,
+      description: 'Koji hub name',
+      defaultValue: 'fedoraproject',
+    },
+  },
+  async resolve(parentValue, args) {
+    const { build_id, instance } = args;
+    log('Query %s for getBuild. Build id : %s', instance, build_id);
+    const reply = await koji_query(instance, 'getBuild', build_id);
+    log('Koji reply: %o', reply);
+    return reply;
+  },
+};
+
+export const queryKojiBuildHistoryByNvr: GraphQLFieldConfig<any, any> = {
+  type: KojiHistoryType,
+  description: 'Retrieve history of tagging of a Koji build given its NVR',
+  args: {
+    nvr: {
+      type: new GraphQLNonNull(GraphQLString),
+      description: "The build's NVR to look up",
+    },
+    instance: {
+      type: KojiInstanceInputType,
+      description: 'Koji hub name',
+      defaultValue: 'fedoraproject',
+    },
+  },
+  async resolve(parentValue, args) {
+    const { nvr, instance } = args;
+    log('Query %s for queryHistory. NVR : %s', instance, nvr);
+    const reply = await koji_query(instance, 'queryHistory', {
+      __starstar: true,
+      build: nvr,
+    });
+    log('Koji reply: %o', reply);
+    return transformKojiHistoryResponse(reply);
+  },
+};
+
+export const queryKojiBuildHistory: GraphQLFieldConfig<any, any> = {
+  type: KojiHistoryType,
+  description: 'Retrieve history of tagging of a Koji build given its Build ID',
+  args: {
+    build_id: {
+      type: new GraphQLNonNull(GraphQLInt),
+      description: 'Build id to lookup',
+    },
+    instance: {
+      type: KojiInstanceInputType,
+      description: 'Koji hub name',
+      defaultValue: 'fedoraproject',
+    },
+  },
+  async resolve(parentValue, args) {
+    const { build_id, instance } = args;
+    log('Query %s for queryHistory. Build id : %s', instance, build_id);
+    const reply: KojiQueryHistoryRawResponse = await koji_query(
+      instance,
+      'queryHistory',
+      {
+        __starstar: true,
+        build: build_id,
+      },
+    );
+    log('Koji reply: %o', reply);
+    return transformKojiHistoryResponse(reply);
+  },
+};
+
+/**
+ * https://koji.fedoraproject.org/koji/api
+ */
+export const queryKojiTask: GraphQLFieldConfig<any, any> = {
+  type: KojiTaskInfoType,
+  args: {
+    task_id: {
+      type: new GraphQLNonNull(GraphQLInt),
+      description: 'Task id to lookup',
+    },
+    instance: {
+      type: KojiInstanceInputType,
+      description: 'Koji hub name',
+      defaultValue: 'fedoraproject',
+    },
+  },
+  async resolve(parentValue, args) {
+    const { task_id, instance } = args;
+    log('Query %s for getTaskInfo: %s', instance, task_id);
+    const reply = await koji_query(instance, 'getTaskInfo', task_id);
+    log('Koji reply: %o', reply);
+    return reply;
+  },
+};

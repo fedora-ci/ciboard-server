@@ -18,7 +18,7 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-import _, { uniqueId } from 'lodash';
+import _ from 'lodash';
 import * as graphql from 'graphql';
 import pako from 'pako';
 import axios from 'axios';
@@ -32,7 +32,6 @@ import {
   GraphQLBoolean,
   GraphQLObjectType,
   GraphQLFieldConfig,
-  GraphQLInputObjectType,
 } from 'graphql';
 import GraphQLJSON from 'graphql-type-json';
 import { delegateToSchema } from '@graphql-tools/delegate';
@@ -252,9 +251,13 @@ export const ArtifactChildren = new GraphQLObjectType({
 export const artifactChildren: GraphQLFieldConfig<any, any> = {
   type: ArtifactChildren,
   args: {
-    parent_doc_id: {
-      type: new GraphQLNonNull(GraphQLString),
-      description: 'Parent document ID',
+    size: {
+      type: GraphQLInt,
+      description: 'Used for pagination',
+    },
+    from: {
+      type: GraphQLInt,
+      description: 'Used for pagination',
     },
     atype: {
       type: GraphQLString,
@@ -268,13 +271,9 @@ export const artifactChildren: GraphQLFieldConfig<any, any> = {
       type: GraphQLBoolean,
       description: 'Show only the latest message for a test.',
     },
-    from: {
-      type: GraphQLInt,
-      description: 'Used for pagination',
-    },
-    size: {
-      type: GraphQLInt,
-      description: 'Used for pagination',
+    parent_doc_id: {
+      type: new GraphQLNonNull(GraphQLString),
+      description: 'Parent document ID',
     },
   },
   description: 'Returns a documents linked to parent document.',
@@ -794,169 +793,6 @@ export const getArtifacts: GraphQLFieldConfig<any, any> = {
     const hits = _.map(hitsItems, (hit) => ({
       hit_source: _.get(hit, '_source'),
       hit_info: _.omit(hit, '_source'),
-    }));
-    const hitsData = _.get(result, 'body.hits', {});
-    const hits_info = _.omit(hitsData, ['hits']);
-    const reply = { hits, hits_info };
-    return reply;
-  },
-};
-
-export const SstHitType = new GraphQLObjectType({
-  name: 'SstHitType',
-  description: 'Artifact entry.',
-  fields: () => ({
-    hit_source: {
-      type: GraphQLJSON,
-      description: 'db-document',
-    },
-    hit_info: {
-      type: GraphQLJSON,
-      description: 'info about db-document',
-    },
-    components: {
-      type: new GraphQLList(GraphQLJSON),
-      description: 'Components',
-    },
-  }),
-});
-
-export const SstInfoType = new GraphQLObjectType({
-  name: 'SstInfoType',
-  fields: () => ({
-    hits: { type: new GraphQLList(SstHitType) },
-    hits_info: {
-      type: GraphQLJSON,
-      description: 'information about opensearch-query',
-    },
-  }),
-});
-
-export type QueryOptionsSst = {
-  productId: string | undefined;
-  sstName: string | undefined;
-};
-
-export const makeSearchBodySst = (
-  queryOptions: QueryOptionsSst,
-): RequestParams.Search => {
-  const { productId, sstName } = queryOptions;
-  const paramSstName = JSON.stringify(sstName);
-  const paramProductId = JSON.stringify(productId);
-  const indexesPrefix = cfg.opensearch.indexes_prefix;
-  const paramIndexName = `${indexesPrefix}components`;
-  const requestBodyString = `
-  {
-    "size": 1000,
-    "explain": false,
-    "query": {
-      "bool": {
-        "filter": {
-          "has_child": {
-            "type": "component",
-            "query": {
-              "match_all": {}
-            },
-            "inner_hits": {
-              "_source": true
-            }
-          }
-        },
-        "must": []
-      }
-    },
-    "sort": [
-      {
-        "_score": {
-          "order": "desc"
-        }
-      },
-      {
-        "sst.productId.number": {
-          "order": "desc"
-        }
-      }
-    ]
-  }
-  `;
-  const mustProductIdString = `
-    {
-      "term": {
-        "sst.productId": {
-          "value": ${paramProductId}
-        }
-      }
-    }
-  `;
-  const mustSstNameString = `
-    {
-      "query_string": {
-        "query": ${paramSstName},
-        "fields": ["sst.sstName"]
-      }
-    }
-  `;
-  const requestBody = JSON.parse(requestBodyString);
-  let i = 0;
-  if (productId) {
-    _.set(
-      requestBody,
-      `query.bool.must[${i}]`,
-      JSON.parse(mustProductIdString),
-    );
-    i++;
-  }
-  if (sstName) {
-    _.set(requestBody, `query.bool.must[${i}]`, JSON.parse(mustSstNameString));
-  }
-  const requestParams: RequestParams.Search = {
-    body: JSON.stringify(requestBody),
-    index: paramIndexName,
-  };
-  return requestParams;
-};
-
-export const querySstList: GraphQLFieldConfig<any, any> = {
-  type: SstInfoType,
-  description: 'List know SST teams.',
-  args: {
-    productId: {
-      type: GraphQLInt,
-      description:
-        'Return results only for specified product id. RHEL 9: 604, RHEL: 8: 370',
-    },
-    sstName: {
-      type: GraphQLString,
-      description: 'part of sst name',
-    },
-  },
-  async resolve(_parentValue, args, _context, _info) {
-    const { productId, sstName } = args;
-    let opensearchClient: OpensearchClient;
-    try {
-      opensearchClient = await getOpensearchClient();
-      if (_.isUndefined(opensearchClient.client)) {
-        throw new Error('Connection is not initialized');
-      }
-    } catch (err) {
-      throw err;
-    }
-    const searchBody: RequestParams.Search = makeSearchBodySst({
-      sstName,
-      productId,
-    });
-    let result: ApiResponse = await opensearchClient.client.search(searchBody);
-    log(
-      ' [i] query -> %s -> answer -> %s',
-      printify(searchBody),
-      printify(_.omit(result.body, ['hits.hits'])),
-    );
-    /** transform Opensearch reply */
-    const hitsItems = _.get(result, 'body.hits.hits', []);
-    const hits = _.map(hitsItems, (hit) => ({
-      hit_source: _.get(hit, '_source'),
-      hit_info: _.omit(hit, ['_source', 'inner_hits']),
-      components: _.get(hit, 'inner_hits.component.hits.hits'),
     }));
     const hitsData = _.get(result, 'body.hits', {});
     const hits_info = _.omit(hitsData, ['hits']);

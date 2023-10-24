@@ -1,7 +1,7 @@
 /*
  * This file is part of ciboard-server
 
- * Copyright (c) 2021, 2022 Andrei Stepanov <astepano@redhat.com>
+ * Copyright (c) 2021, 2022, 2023 Andrei Stepanov <astepano@redhat.com>
  * 
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -19,108 +19,46 @@
  */
 
 import _ from 'lodash';
-import zlib from 'zlib';
-import util from 'util';
-import axios from 'axios';
 import debug from 'debug';
-import assert from 'assert';
-import { URL } from 'url';
 import * as graphql from 'graphql';
-import GraphQLJSON from 'graphql-type-json';
 
-import { getcfg, greenwave_cfg, waiverdb_cfg } from '../cfg';
+const { GraphQLString, GraphQLObjectType } = graphql;
+
+import { getcfg } from '../cfg';
 import {
-  koji_query,
-  KojiQueryHistoryRawResponse,
-  transformKojiHistoryResponse,
-} from '../services/kojibrew';
-import * as mbs from '../services/mbs';
-
-const cfg = getcfg();
-const log = debug('osci:root_query_type');
-const zlib_inflate = util.promisify(zlib.inflate);
-
-const {
-  GraphQLID,
-  GraphQLInt,
-  GraphQLList,
-  GraphQLString,
-  GraphQLNonNull,
-  GraphQLBoolean,
-  GraphQLObjectType,
-  GraphQLInputObjectType,
-} = graphql;
-
-import {
-  WaiverDBInfoType,
-  WaiverDBWaiverType,
-  WaiverDBWaiversType,
-  WaiverDBPermissionsType,
+  queryWaiverDbInfo,
+  queryWaiverDbWaiver,
+  queryWaiverDbWaivers,
+  queryWaiverDbPermissions,
 } from './waiverdb';
-
+import { queryDistGitCommit } from './distgit_types';
+import { querySstInfo, querySstList, querySstResults } from './sst_types';
 import {
-  CommitObject,
-  commitObjFromRaw,
-  commitObjFromGitLabApi,
-  DistGitInstanceInputType,
-  CommitObjectType,
-  commitObjFromPagureApi,
-} from './distgit_types';
-
-import {
-  GreenwaveInfoType,
-  GreenwavePoliciesType,
-  GreenwaveDecisionType,
-  GreenwaveSubjectTypesType,
-} from './greenwave_types';
-
-import { SSTInfoType, SSTListType } from './sst_types';
-
-import {
-  KojiHistoryType,
-  KojiTaskInfoType,
-  KojiBuildInfoType,
-  KojiBuildTagsType,
-  KojiInstanceInputType,
+  queryKojiTask,
+  queryKojiBuild,
+  queryKojiBuildTags,
+  queryKojiBuildHistory,
+  queryKojiBuildTagsByNvr,
+  queryKojiBuildHistoryByNvr,
 } from './koji_types';
-import { MbsBuildType, MbsInstanceInputType } from './mbs_types';
-import {
-  AuthZMappingType,
-  metadataConsolidated,
-  MetadataConsolidatedType,
-  metadataRaw,
-  MetadataRawType,
-} from './metadata';
-import _static from '../routes/static';
+import { queryMbsBuild } from './mbs_types';
 import { teiidQueryETLinkedAdvisories } from './teiid';
+import { getArtifacts, artifactChildren } from './artifacts';
 import {
-  QueryOptions,
-  artifactChildren,
-  makeRequestParamsArtifacts,
-  getArtifacts,
-  querySstList,
-} from './artifacts';
-import { ApiResponse, RequestParams } from '@opensearch-project/opensearch/.';
-import { printify } from '../services/printify';
+  metadataRaw,
+  queryAuthzMapping,
+  metadataConsolidated,
+} from './metadata';
+import {
+  queryGreenwaveInfo,
+  queryGreenwavePolicies,
+  queryGreenwaveDecision,
+  queryGreenwaveSubjectTypes,
+} from './greenwave_types';
+import _static from '../routes/static';
 
-const GreenwaveWaiverRuleInputType = new GraphQLInputObjectType({
-  name: 'GreenwaveWaiverRuleInputType',
-  fields: () => ({
-    type: { type: GraphQLString },
-    test_case_name: { type: GraphQLString },
-  }),
-});
-
-const GreenwaveWaiverSubjectInputType = new GraphQLInputObjectType({
-  name: 'GreenwaveWaiverSubjectInputType',
-  fields: () => ({
-    item: { type: GraphQLString },
-    type: { type: GraphQLString },
-  }),
-});
-
-const splitAt = (index: number) => (x: any[]) =>
-  [x.slice(0, index), x.slice(index)];
+const log = debug('osci:root_query_type');
+const cfg = getcfg();
 
 const RootQuery = new GraphQLObjectType({
   name: 'RootQueryType',
@@ -139,526 +77,42 @@ const RootQuery = new GraphQLObjectType({
             return 'pong';
           },
         },
-        /**
-         *  Subsystem teams (SST)
-         */
-        sst_list: {
-          type: SSTListType,
-          resolve() {
-            const url = new URL(cfg.sst.results, cfg.sst.url);
-            return axios.get(url.toString()).then((response) =>
-              response.data.map((sst: SSTInfoType) => {
-                const releases = (sst.releases || []).map((rel) => rel.name);
-                const { name, display_name } = sst;
-                return { name, display_name, releases };
-              }),
-            );
-          },
-        },
-        sst_results: {
-          /* do not hardcode exact structure of reply from sst backend, do any interpretation on backend */
-          type: new GraphQLList(GraphQLJSON),
-          args: {
-            sst_name: { type: new GraphQLNonNull(GraphQLString) },
-            release: { type: new GraphQLNonNull(GraphQLString) },
-          },
-          async resolve(_parentValue, { sst_name, release }) {
-            const results_json_url = new URL(
-              `/results/${sst_name}.${release}.json`,
-              cfg.sst.url,
-            ).toString();
-            const response = await axios.get(results_json_url);
-            /* axios.get can throw exception, if we are here then no exception */
-            const data = response.data?.data;
-            assert.ok(_.isArray(data), 'Exptected array reply');
-            return data as (typeof GraphQLJSON)[];
-          },
-        },
-        /**
-         * WaiverDB
-         */
-        waiver_db_info: {
-          type: WaiverDBInfoType,
-          resolve() {
-            if (!waiverdb_cfg?.url) {
-              throw new Error('Waiverdb is not configured.');
-            }
-            return axios
-              .get(waiverdb_cfg.about.api_url.toString())
-              .then((x) => x.data);
-          },
-        },
-        waiver_db_permissions: {
-          type: WaiverDBPermissionsType,
-          resolve() {
-            if (!waiverdb_cfg?.url) {
-              throw new Error('Waiverdb is not configured.');
-            }
-            return axios
-              .get(waiverdb_cfg.permissions.api_url.toString())
-              .then((response) => response.data);
-          },
-        },
-        waiver_db_waivers: {
-          type: WaiverDBWaiversType,
-          args: {
-            page: { type: GraphQLInt },
-            limit: { type: GraphQLInt },
-            /**
-             * Only include waivers for the given subject type.
-             */
-            subject_type: { type: GraphQLString },
-            /**
-             * Only include waivers for the given subject identifier.
-             */
-            subject_identifier: { type: GraphQLString },
-            /**
-             * Only include waivers for the given test case name.
-             */
-            testcase: { type: GraphQLString },
-            /**
-             * Only include waivers for the given product version.
-             */
-            product_version: { type: GraphQLString },
-            /**
-             * Only include waivers which were submitted by the given user.
-             */
-            username: { type: GraphQLString },
-            /**
-             * Only include waivers which were proxied on behalf of someone else by the given user.
-             */
-            proxied_by: { type: GraphQLString },
-            /**
-             * An ISO 8601 formatted datetime (e.g. 2017-03-16T13:40:05+00:00) to filter results by. Optionally provide a second ISO 8601 datetime separated by a comma to retrieve a range (e.g. 2017-03-16T13:40:05+00:00, 2017-03-16T13:40:15+00:00)
-             */
-            since: { type: GraphQLString },
-            /**
-             * If true, obsolete waivers will be included.
-             */
-            include_obsolete: { type: GraphQLBoolean },
-          },
-          resolve(_parentValue, args) {
-            if (!waiverdb_cfg?.url) {
-              throw new Error('Waiverdb is not configured.');
-            }
-            const target_url = new URL(waiverdb_cfg.waivers.api_url.toString());
-            _.forEach(args, (val, key) =>
-              target_url.searchParams.append(key, val),
-            );
-            const turl = target_url.toString();
-            log('Get %s', turl);
-            return axios
-              .get(turl)
-              .then((x) => {
-                log('Received waivers: %O', _.map(x.data.data, 'id'));
-                const ret = {
-                  waivers: x.data.data,
-                  page_url_prev: x.data.prev,
-                  page_url_next: x.data.next,
-                  page_url_first: x.data.first,
-                  page_url_last: x.data.last,
-                };
-                return ret;
-              })
-              .catch((reason) => {
-                log('Query failed: %s', reason);
-                return reason;
-              });
-          },
-        },
-        waiver_db_waiver: {
-          type: WaiverDBWaiverType,
-          args: {
-            id: { type: new GraphQLNonNull(GraphQLInt) },
-          },
-          resolve(parentValue, { id }) {
-            if (!waiverdb_cfg?.url) {
-              throw new Error('Waiverdb is not configured.');
-            }
-            const target_url = new URL(
-              `${id}`,
-              waiverdb_cfg.waivers.api_url.toString(),
-            ).toString();
-            return axios.get(target_url).then((x) => x.data);
-          },
-        },
-        greenwave_info: {
-          type: GreenwaveInfoType,
-          resolve() {
-            if (!greenwave_cfg?.url) {
-              throw new Error('Greenwave is not configured.');
-            }
-            return axios
-              .get(greenwave_cfg.about.api_url.toString())
-              .then((x) => x.data);
-          },
-        },
-        greenwave_subject_types: {
-          type: GreenwaveSubjectTypesType,
-          resolve() {
-            if (!greenwave_cfg?.url) {
-              throw new Error('Greenwave is not configured.');
-            }
-            return axios
-              .get(greenwave_cfg.subject_types.api_url.toString())
-              .then((x) => x.data);
-          },
-        },
-        greenwave_policies: {
-          type: GreenwavePoliciesType,
-          resolve() {
-            if (!greenwave_cfg?.url) {
-              throw new Error('Greenwave is not configured.');
-            }
-            return axios
-              .get(greenwave_cfg.policies.api_url.toString())
-              .then((x) => x.data);
-          },
-        },
-        greenwave_decision: {
-          type: GreenwaveDecisionType,
-          args: {
-            subject_type: {
-              type: GraphQLString,
-              description:
-                'The type of software artefact we are making a decision about, for example koji_build.',
-            },
-            product_version: {
-              type: GraphQLString,
-              description:
-                'The product version string used for querying WaiverDB. Example: fedora-30',
-            },
-            decision_context: {
-              type: GraphQLString,
-              description:
-                'The decision context string, identified by a free-form string label. It is to be named through coordination between policy author and calling application, for example bodhi_update_push_stable. Do not use this parameter with rules.',
-            },
-            subject_identifier: {
-              type: GraphQLString,
-              description:
-                'A string identifying the software artefact we are making a decision about. The meaning of the identifier depends on the subject type.',
-            },
-            when: {
-              type: GraphQLString,
-              description:
-                'A date (or datetime) in ISO8601 format. Greenwave will take a decision considering only results and waivers until that point in time. Use this to get previous decision disregarding a new test result or waiver.',
-            },
-            subject: {
-              type: new GraphQLList(GreenwaveWaiverSubjectInputType),
-              description:
-                'A list of items about which the caller is requesting a decision used for querying ResultsDB and WaiverDB. Each item contains one or more key-value pairs of ‘data’ key in ResultsDB API. For example, [{“type”: “koji_build”, “item”: “xscreensaver-5.37-3.fc27”}]. Use this for requesting decisions on multiple subjects at once. If used subject_type and subject_identifier are ignored.',
-            },
-            ignore_result: {
-              type: new GraphQLList(GraphQLString),
-              description:
-                'A list of result ids that will be ignored when making the decision.',
-            },
-            ignore_waiver: {
-              type: new GraphQLList(GraphQLString),
-              description:
-                'A list of waiver ids that will be ignored when making the decision.',
-            },
-            rules: {
-              type: new GraphQLList(GreenwaveWaiverRuleInputType),
-              description:
-                'A list of dictionaries containing the ‘type’ and ‘test_case_name’ of an individual rule used to specify on-demand policy. For example, [{“type”:”PassingTestCaseRule”, “test_case_name”:”dist.abicheck”}, {“type”:”RemoteRule”}]. Do not use this parameter along with decision_context.',
-            },
-          },
-          resolve(_parentValue, args) {
-            if (!greenwave_cfg?.url) {
-              throw new Error('Greenwave is not configured.');
-            }
-            const postQuery = { ...args };
-            postQuery.verbose = true;
-            log('Query greenwave for decision: %o', postQuery);
-            return axios
-              .post(greenwave_cfg.decision.api_url.toString(), postQuery)
-              .then((x) => x.data);
-          },
-        },
-        /**
-         * https://koji.fedoraproject.org/koji/api
-         */
-        koji_task: {
-          type: KojiTaskInfoType,
-          args: {
-            task_id: {
-              type: new GraphQLNonNull(GraphQLInt),
-              description: 'Task id to lookup',
-            },
-            instance: {
-              type: KojiInstanceInputType,
-              description: 'Koji hub name',
-              defaultValue: 'fedoraproject',
-            },
-          },
-          async resolve(parentValue, args) {
-            const { task_id, instance } = args;
-            log('Query %s for getTaskInfo: %s', instance, task_id);
-            const reply = await koji_query(instance, 'getTaskInfo', task_id);
-            log('Koji reply: %o', reply);
-            return reply;
-          },
-        },
-        koji_build_history: {
-          type: KojiHistoryType,
-          description:
-            'Retrieve history of tagging of a Koji build given its Build ID',
-          args: {
-            build_id: {
-              type: new GraphQLNonNull(GraphQLInt),
-              description: 'Build id to lookup',
-            },
-            instance: {
-              type: KojiInstanceInputType,
-              description: 'Koji hub name',
-              defaultValue: 'fedoraproject',
-            },
-          },
-          async resolve(parentValue, args) {
-            const { build_id, instance } = args;
-            log('Query %s for queryHistory. Build id : %s', instance, build_id);
-            const reply: KojiQueryHistoryRawResponse = await koji_query(
-              instance,
-              'queryHistory',
-              {
-                __starstar: true,
-                build: build_id,
-              },
-            );
-            log('Koji reply: %o', reply);
-            return transformKojiHistoryResponse(reply);
-          },
-        },
-        koji_build_history_by_nvr: {
-          type: KojiHistoryType,
-          description:
-            'Retrieve history of tagging of a Koji build given its NVR',
-          args: {
-            nvr: {
-              type: new GraphQLNonNull(GraphQLString),
-              description: "The build's NVR to look up",
-            },
-            instance: {
-              type: KojiInstanceInputType,
-              description: 'Koji hub name',
-              defaultValue: 'fedoraproject',
-            },
-          },
-          async resolve(parentValue, args) {
-            const { nvr, instance } = args;
-            log('Query %s for queryHistory. NVR : %s', instance, nvr);
-            const reply = await koji_query(instance, 'queryHistory', {
-              __starstar: true,
-              build: nvr,
-            });
-            log('Koji reply: %o', reply);
-            return transformKojiHistoryResponse(reply);
-          },
-        },
-        koji_build: {
-          type: KojiBuildInfoType,
-          args: {
-            build_id: {
-              type: new GraphQLNonNull(GraphQLInt),
-              description: 'Build id to lookup',
-            },
-            instance: {
-              type: KojiInstanceInputType,
-              description: 'Koji hub name',
-              defaultValue: 'fedoraproject',
-            },
-          },
-          async resolve(parentValue, args) {
-            const { build_id, instance } = args;
-            log('Query %s for getBuild. Build id : %s', instance, build_id);
-            const reply = await koji_query(instance, 'getBuild', build_id);
-            log('Koji reply: %o', reply);
-            return reply;
-          },
-        },
-        koji_build_tags: {
-          type: new GraphQLList(KojiBuildTagsType),
-          description:
-            'Retrieve list of all active tags of a Koji build given its Build ID',
-          args: {
-            build_id: {
-              type: new GraphQLNonNull(GraphQLInt),
-              description: 'Build id to lookup',
-            },
-            instance: {
-              type: KojiInstanceInputType,
-              description: 'Koji hub name',
-              defaultValue: 'fedoraproject',
-            },
-          },
-          async resolve(parentValue, args) {
-            const { build_id, instance } = args;
-            log('Query %s for listTags. Build id : %s', instance, build_id);
-            const reply = await koji_query(instance, 'listTags', build_id);
-            log('Koji reply: %o', reply);
-            return reply;
-          },
-        },
-        koji_build_tags_by_nvr: {
-          type: new GraphQLList(KojiBuildTagsType),
-          description:
-            'Retrieve list of all active tags of a Koji build given its NVR',
-          args: {
-            nvr: {
-              type: new GraphQLNonNull(GraphQLString),
-              description: "The build's NVR to look up",
-            },
-            instance: {
-              type: KojiInstanceInputType,
-              description: 'Koji hub name',
-              defaultValue: 'fedoraproject',
-            },
-          },
-          async resolve(parentValue, args) {
-            const { nvr, instance } = args;
-            log('Query %s for listTags. NVR : %s', instance, nvr);
-            const reply = await koji_query(instance, 'listTags', nvr);
-            log('Koji reply: %o', reply);
-            return reply;
-          },
-        },
-        // Queries for module-related information in MBS.
-        mbs_build: {
-          type: MbsBuildType,
-          description:
-            'Query for data on a module build from the Module Build System (MBS)',
-          args: {
-            build_id: {
-              type: new GraphQLNonNull(GraphQLInt),
-              description: 'ID of the MBS build to look up',
-            },
-            instance: {
-              type: MbsInstanceInputType,
-              description:
-                'Identifier of the Module Build System instance to query',
-              defaultValue: MbsInstanceInputType.getValue('rh'),
-            },
-          },
-          async resolve(_parentValue, args) {
-            const { build_id, instance } = args;
-            log(
-              'Querying MBS instance ‘%s’ for build ID %s',
-              instance,
-              build_id,
-            );
-            const reply = await mbs.queryModuleBuild(instance, build_id);
-            log('MBS reply: %o', reply);
-            return reply;
-          },
-        },
-        // Query for information on a specific commit in the Dist-Git.
-        distgit_commit: {
-          /**
-           * Inspired by: https://git-scm.com/book/en/v2/Git-Internals-Transfer-Protocols
-           */
-          type: CommitObject,
-          args: {
-            repo_name: {
-              type: new GraphQLNonNull(GraphQLString),
-              description: 'Repo name.',
-            },
-            namespace: {
-              type: GraphQLString,
-              description: 'Namespace: rpms, modules, containers,...',
-              defaultValue: 'rpms',
-            },
-            commit_sha1: {
-              type: new GraphQLNonNull(GraphQLString),
-              description: 'Commit SHA1 to lookup',
-            },
-            instance: {
-              type: DistGitInstanceInputType,
-              description: 'Dist-git name',
-              defaultValue: 'fp',
-            },
-          },
-          async resolve(parentValue, args) {
-            /**
-             * https://github.com/git/git/blob/master/Documentation/technical/http-protocol.txt
-             */
-            const { commit_sha1, repo_name, namespace, instance } = args;
-            log(
-              'Query %s dist-git %s/%s:%s',
-              instance,
-              namespace,
-              repo_name,
-              commit_sha1,
-            );
-            const [dir, file] = splitAt(2)(commit_sha1);
-            var url;
-            let commit_obj: CommitObjectType | undefined;
-            if (instance === 'rh') {
-              url = `${cfg.distgit.rh.base_url}/cgit/${namespace}/${repo_name}/objects/${dir}/${file}`;
-              const reply = await axios.get(url, {
-                responseType: 'arraybuffer',
-              });
-              const commit_obj_raw = await zlib_inflate(reply.data);
-              commit_obj = commitObjFromRaw(commit_obj_raw);
-            }
-            if (instance === 'cs') {
-              const project_path = encodeURIComponent(
-                `redhat/centos-stream/${namespace}/${repo_name}`,
-              );
-              url = `${cfg.distgit.cs.base_url_api}/${project_path}/repository/commits/${commit_sha1}`;
-              const reply = await axios.get(url);
-              commit_obj = commitObjFromGitLabApi(reply.data);
-            }
-            if (instance === 'fp') {
-              const repo_name_ = _.replace(repo_name, /\.git$/, '');
-              url = `${cfg.distgit.fp.base_url_api}/${namespace}/${repo_name_}/c/${commit_sha1}/info`;
-              const reply = await axios.get(url);
-              commit_obj = commitObjFromPagureApi(reply.data);
-            }
-            if (_.isUndefined(commit_obj)) {
-              return {};
-            }
-            log(
-              'Reply %s dist-git %s/%s:%s commit-object:%s%o',
-              instance,
-              namespace,
-              repo_name,
-              commit_sha1,
-              '\n',
-              commit_obj,
-            );
-            return commit_obj;
-          },
-        },
-        authz_mapping: {
-          type: AuthZMappingType,
-          description: 'Returns an object of allowed actions for user.',
-          async resolve(_parentValue, _args, context, _info) {
-            const { user } = context;
-            const authz = { can_edit_metadata: false };
-            if (!user || !user.displayName) {
-              return authz;
-            }
-            const allowedRWGroups = cfg.metadata.rw_groups.set;
-            const rwGroups = _.intersection(user.Role, allowedRWGroups);
-            if (!_.isEmpty(rwGroups)) {
-              authz.can_edit_metadata = true;
-            }
-            return authz;
-          },
-        },
       },
       {
-        // Sst
-        sstList: querySstList,
         // Artifacts
         artifacts: getArtifacts,
         artifactChildren: artifactChildren,
         // Metadata
         metadataRaw: metadataRaw,
+        authzMapping: queryAuthzMapping,
         metadataConsolidated: metadataConsolidated,
         // Teiid
-        teiid_et_linked_advisories: teiidQueryETLinkedAdvisories,
+        teiidEtLinkedAdvisories: teiidQueryETLinkedAdvisories,
+        // Dist-git
+        distgitCommit: queryDistGitCommit,
+        // WaiverDb
+        waiverDbInfo: queryWaiverDbInfo,
+        waiverDbWaiver: queryWaiverDbWaiver,
+        waiverDbWaivers: queryWaiverDbWaivers,
+        waiverDbPermissions: queryWaiverDbPermissions,
+        // Mbs
+        mbsBuild: queryMbsBuild,
+        // Koji
+        kojiTask: queryKojiTask,
+        kojiBuild: queryKojiBuild,
+        kojiBuildTags: queryKojiBuildTags,
+        kojiBuildHistory: queryKojiBuildHistory,
+        kojiBuildTagsByNvr: queryKojiBuildTagsByNvr,
+        kojiBuildHistoryByNvr: queryKojiBuildHistoryByNvr,
+        // Greenwave
+        greenwaveInfo: queryGreenwaveInfo,
+        greenwaveDecision: queryGreenwaveDecision,
+        greenwavePolicies: queryGreenwavePolicies,
+        greenwaveSubjectTypes: queryGreenwaveSubjectTypes,
+        // SST
+        sstList: querySstList,
+        sstInfo: querySstInfo,
+        sstResults: querySstResults,
       },
     ),
 });

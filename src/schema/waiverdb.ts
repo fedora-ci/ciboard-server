@@ -18,6 +18,7 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+import _ from 'lodash';
 import * as graphql from 'graphql';
 import util from 'util';
 import debug from 'debug';
@@ -164,5 +165,110 @@ export const waiverNew: GraphQLFieldConfig<any, any> = {
         return x;
       },
     );
+  },
+};
+
+export const queryWaiverDbInfo: GraphQLFieldConfig<any, any> = {
+  type: WaiverDBInfoType,
+  resolve() {
+    if (!waiverdb_cfg?.url) {
+      throw new Error('Waiverdb is not configured.');
+    }
+    return axios.get(waiverdb_cfg.about.api_url.toString()).then((x) => x.data);
+  },
+};
+
+export const queryWaiverDbPermissions: GraphQLFieldConfig<any, any> = {
+  type: WaiverDBPermissionsType,
+  resolve() {
+    if (!waiverdb_cfg?.url) {
+      throw new Error('Waiverdb is not configured.');
+    }
+    return axios
+      .get(waiverdb_cfg.permissions.api_url.toString())
+      .then((response) => response.data);
+  },
+};
+
+export const queryWaiverDbWaivers: GraphQLFieldConfig<any, any> = {
+  type: WaiverDBWaiversType,
+  args: {
+    page: { type: GraphQLInt },
+    limit: { type: GraphQLInt },
+    /**
+     * An ISO 8601 formatted datetime (e.g. 2017-03-16T13:40:05+00:00) to filter results by. Optionally provide a second ISO 8601 datetime separated by a comma to retrieve a range (e.g. 2017-03-16T13:40:05+00:00, 2017-03-16T13:40:15+00:00)
+     */
+    since: { type: GraphQLString },
+    /**
+     * Only include waivers for the given test case name.
+     */
+    testcase: { type: GraphQLString },
+    /**
+     * Only include waivers which were submitted by the given user.
+     */
+    username: { type: GraphQLString },
+    /**
+     * Only include waivers which were proxied on behalf of someone else by the given user.
+     */
+    proxied_by: { type: GraphQLString },
+    /**
+     * Only include waivers for the given subject type.
+     */
+    subject_type: { type: GraphQLString },
+    /**
+     * Only include waivers for the given product version.
+     */
+    product_version: { type: GraphQLString },
+    /**
+     * Only include waivers for the given subject identifier.
+     */
+    subject_identifier: { type: GraphQLString },
+    /**
+     * If true, obsolete waivers will be included.
+     */
+    include_obsolete: { type: GraphQLBoolean },
+  },
+  resolve(_parentValue, args) {
+    if (!waiverdb_cfg?.url) {
+      throw new Error('Waiverdb is not configured.');
+    }
+    const target_url = new URL(waiverdb_cfg.waivers.api_url.toString());
+    _.forEach(args, (val, key) => target_url.searchParams.append(key, val));
+    const turl = target_url.toString();
+    log('Get %s', turl);
+    return axios
+      .get(turl)
+      .then((x) => {
+        log('Received waivers: %O', _.map(x.data.data, 'id'));
+        const ret = {
+          waivers: x.data.data,
+          page_url_prev: x.data.prev,
+          page_url_next: x.data.next,
+          page_url_first: x.data.first,
+          page_url_last: x.data.last,
+        };
+        return ret;
+      })
+      .catch((reason) => {
+        log('Query failed: %s', reason);
+        return reason;
+      });
+  },
+};
+
+export const queryWaiverDbWaiver: GraphQLFieldConfig<any, any> = {
+  type: WaiverDBWaiverType,
+  args: {
+    id: { type: new GraphQLNonNull(GraphQLInt) },
+  },
+  resolve(parentValue, { id }) {
+    if (!waiverdb_cfg?.url) {
+      throw new Error('Waiverdb is not configured.');
+    }
+    const target_url = new URL(
+      `${id}`,
+      waiverdb_cfg.waivers.api_url.toString(),
+    ).toString();
+    return axios.get(target_url).then((x) => x.data);
   },
 };
