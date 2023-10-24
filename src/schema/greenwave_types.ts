@@ -1,7 +1,7 @@
 /*
  * This file is part of ciboard-server
 
- * Copyright (c) 2021, 2022 Andrei Stepanov <astepano@redhat.com>
+ * Copyright (c) 2021, 2022, 2023 Andrei Stepanov <astepano@redhat.com>
  * 
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -18,27 +18,25 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-import * as graphql from 'graphql';
-import debug from 'debug';
-import { getOSVersionFromNvr, getOSVersionFromTag } from '../services/misc';
-import { GraphQLJSON } from 'graphql-type-json';
 import _ from 'lodash';
+import * as graphql from 'graphql';
+import axios from 'axios';
+import debug from 'debug';
+const { GraphQLList, GraphQLString, GraphQLBoolean, GraphQLObjectType } =
+  graphql;
+import { greenwave_cfg } from '../cfg';
+
+import { GraphQLJSON } from 'graphql-type-json';
+import { getOSVersionFromNvr, getOSVersionFromTag } from '../services/misc';
 import {
-  ArtifactModel,
   TSearchable,
   isArtifactBrewBuild,
   isArtifactRedHatContainerImage,
   isArtifactRedHatModule,
 } from '../services/db_interface';
+import { GraphQLFieldConfig, GraphQLInputObjectType } from 'graphql';
 
 const log = debug('osci:greenwave_types');
-const {
-  GraphQLObjectType,
-  GraphQLList,
-  GraphQLString,
-  GraphQLBoolean,
-  GraphQLInt,
-} = graphql;
 
 export const GreenwaveInfoType = new GraphQLObjectType({
   name: 'GreenwaveInfoType',
@@ -299,5 +297,119 @@ export const greenwave = {
           return 'unknown_product_version';
       }
     },
+  },
+};
+
+export const queryGreenwaveInfo: GraphQLFieldConfig<any, any> = {
+  type: GreenwaveInfoType,
+  resolve() {
+    if (!greenwave_cfg?.url) {
+      throw new Error('Greenwave is not configured.');
+    }
+    return axios
+      .get(greenwave_cfg.about.api_url.toString())
+      .then((x) => x.data);
+  },
+};
+
+export const queryGreenwaveSubjectTypes: GraphQLFieldConfig<any, any> = {
+  type: GreenwaveSubjectTypesType,
+  resolve() {
+    if (!greenwave_cfg?.url) {
+      throw new Error('Greenwave is not configured.');
+    }
+    return axios
+      .get(greenwave_cfg.subject_types.api_url.toString())
+      .then((x) => x.data);
+  },
+};
+
+export const queryGreenwavePolicies: GraphQLFieldConfig<any, any> = {
+  type: GreenwavePoliciesType,
+  resolve() {
+    if (!greenwave_cfg?.url) {
+      throw new Error('Greenwave is not configured.');
+    }
+    return axios
+      .get(greenwave_cfg.policies.api_url.toString())
+      .then((x) => x.data);
+  },
+};
+
+const GreenwaveWaiverRuleInputType = new GraphQLInputObjectType({
+  name: 'GreenwaveWaiverRuleInputType',
+  fields: () => ({
+    type: { type: GraphQLString },
+    test_case_name: { type: GraphQLString },
+  }),
+});
+
+const GreenwaveWaiverSubjectInputType = new GraphQLInputObjectType({
+  name: 'GreenwaveWaiverSubjectInputType',
+  fields: () => ({
+    item: { type: GraphQLString },
+    type: { type: GraphQLString },
+  }),
+});
+
+export const queryGreenwaveDecision: GraphQLFieldConfig<any, any> = {
+  type: GreenwaveDecisionType,
+  args: {
+    when: {
+      type: GraphQLString,
+      description:
+        'A date (or datetime) in ISO8601 format. Greenwave will take a decision considering only results and waivers until that point in time. Use this to get previous decision disregarding a new test result or waiver.',
+    },
+    rules: {
+      type: new GraphQLList(GreenwaveWaiverRuleInputType),
+      description:
+        'A list of dictionaries containing the ‘type’ and ‘test_case_name’ of an individual rule used to specify on-demand policy. For example, [{“type”:”PassingTestCaseRule”, “test_case_name”:”dist.abicheck”}, {“type”:”RemoteRule”}]. Do not use this parameter along with decision_context.',
+    },
+    subject: {
+      type: new GraphQLList(GreenwaveWaiverSubjectInputType),
+      description:
+        'A list of items about which the caller is requesting a decision used for querying ResultsDB and WaiverDB. Each item contains one or more key-value pairs of ‘data’ key in ResultsDB API. For example, [{“type”: “koji_build”, “item”: “xscreensaver-5.37-3.fc27”}]. Use this for requesting decisions on multiple subjects at once. If used subject_type and subject_identifier are ignored.',
+    },
+    subject_type: {
+      type: GraphQLString,
+      description:
+        'The type of software artefact we are making a decision about, for example koji_build.',
+    },
+    ignore_result: {
+      type: new GraphQLList(GraphQLString),
+      description:
+        'A list of result ids that will be ignored when making the decision.',
+    },
+    ignore_waiver: {
+      type: new GraphQLList(GraphQLString),
+      description:
+        'A list of waiver ids that will be ignored when making the decision.',
+    },
+    product_version: {
+      type: GraphQLString,
+      description:
+        'The product version string used for querying WaiverDB. Example: fedora-30',
+    },
+    decision_context: {
+      type: GraphQLString,
+      description:
+        'The decision context string, identified by a free-form string label. It is to be named through coordination between policy author and calling application, for example bodhi_update_push_stable. Do not use this parameter with rules.',
+    },
+    subject_identifier: {
+      type: GraphQLString,
+      description:
+        'A string identifying the software artefact we are making a decision about. The meaning of the identifier depends on the subject type.',
+    },
+  },
+  resolve(_parentValue, args) {
+    if (!greenwave_cfg?.url) {
+      throw new Error('Greenwave is not configured.');
+    }
+    const postQuery = { ...args };
+    postQuery.verbose = true;
+    log('Query greenwave for decision: %o', postQuery);
+    return axios
+      .post(greenwave_cfg.decision.api_url.toString(), postQuery)
+      .then((x) => x.data);
   },
 };

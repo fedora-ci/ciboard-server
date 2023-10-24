@@ -21,10 +21,22 @@
 import _ from 'lodash';
 import * as graphql from 'graphql';
 import moment from 'moment';
+import { GraphQLFieldConfig } from 'graphql';
+import zlib from 'zlib';
+import util from 'util';
+import axios from 'axios';
+const { GraphQLNonNull, GraphQLList, GraphQLString, GraphQLObjectType } =
+  graphql;
+
+import { getcfg } from '../cfg';
+const cfg = getcfg();
+const zlib_inflate = util.promisify(zlib.inflate);
+
+const splitAt = (index: number) => (x: any[]) =>
+  [x.slice(0, index), x.slice(index)];
 
 const debug = require('debug');
 const log = debug('osci:distgit_types');
-const { GraphQLList, GraphQLString, GraphQLObjectType } = graphql;
 
 /**
  * Returns an arrays of lines, that begins with 'start_word'
@@ -289,3 +301,82 @@ export const DistGitInstanceInputType = new graphql.GraphQLEnumType({
     cs: { value: 'cs' },
   },
 });
+
+// Query for information on a specific commit in the Dist-Git.
+export const queryDistGitCommit: GraphQLFieldConfig<any, any> = {
+  /**
+   * Inspired by: https://git-scm.com/book/en/v2/Git-Internals-Transfer-Protocols
+   */
+  type: CommitObject,
+  args: {
+    instance: {
+      type: DistGitInstanceInputType,
+      description: 'Dist-git name',
+      defaultValue: 'fp',
+    },
+    repo_name: {
+      type: new GraphQLNonNull(GraphQLString),
+      description: 'Repo name.',
+    },
+    namespace: {
+      type: GraphQLString,
+      description: 'Namespace: rpms, modules, containers,...',
+      defaultValue: 'rpms',
+    },
+    commit_sha1: {
+      type: new GraphQLNonNull(GraphQLString),
+      description: 'Commit SHA1 to lookup',
+    },
+  },
+  async resolve(parentValue, args) {
+    /**
+     * https://github.com/git/git/blob/master/Documentation/technical/http-protocol.txt
+     */
+    const { commit_sha1, repo_name, namespace, instance } = args;
+    log(
+      'Query %s dist-git %s/%s:%s',
+      instance,
+      namespace,
+      repo_name,
+      commit_sha1,
+    );
+    const [dir, file] = splitAt(2)(commit_sha1);
+    var url;
+    let commit_obj: CommitObjectType | undefined;
+    if (instance === 'rh') {
+      url = `${cfg.distgit.rh.base_url}/cgit/${namespace}/${repo_name}/objects/${dir}/${file}`;
+      const reply = await axios.get(url, {
+        responseType: 'arraybuffer',
+      });
+      const commit_obj_raw = await zlib_inflate(reply.data);
+      commit_obj = commitObjFromRaw(commit_obj_raw);
+    }
+    if (instance === 'cs') {
+      const project_path = encodeURIComponent(
+        `redhat/centos-stream/${namespace}/${repo_name}`,
+      );
+      url = `${cfg.distgit.cs.base_url_api}/${project_path}/repository/commits/${commit_sha1}`;
+      const reply = await axios.get(url);
+      commit_obj = commitObjFromGitLabApi(reply.data);
+    }
+    if (instance === 'fp') {
+      const repo_name_ = _.replace(repo_name, /\.git$/, '');
+      url = `${cfg.distgit.fp.base_url_api}/${namespace}/${repo_name_}/c/${commit_sha1}/info`;
+      const reply = await axios.get(url);
+      commit_obj = commitObjFromPagureApi(reply.data);
+    }
+    if (_.isUndefined(commit_obj)) {
+      return {};
+    }
+    log(
+      'Reply %s dist-git %s/%s:%s commit-object:%s%o',
+      instance,
+      namespace,
+      repo_name,
+      commit_sha1,
+      '\n',
+      commit_obj,
+    );
+    return commit_obj;
+  },
+};

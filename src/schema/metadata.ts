@@ -18,31 +18,29 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-import _, { entriesIn } from 'lodash';
-import * as graphql from 'graphql';
+import _ from 'lodash';
+import util from 'util';
+import debug from 'debug';
 import {
+  GraphQLID,
   GraphQLInt,
+  GraphQLList,
   GraphQLString,
+  GraphQLNonNull,
   GraphQLBoolean,
   GraphQLObjectType,
-} from 'graphql';
-import debug from 'debug';
-import util from 'util';
-import { GraphQLJSON } from 'graphql-type-json';
-import {
   GraphQLFieldConfig,
-  GraphQLID,
-  GraphQLList,
-  GraphQLNonNull,
 } from 'graphql';
+import * as graphql from 'graphql';
+import { GraphQLJSON } from 'graphql-type-json';
+import { ApiResponse, RequestParams } from '@opensearch-project/opensearch/.';
 
-import printify from '../services/printify';
 import { getcfg } from '../cfg';
+import printify from '../services/printify';
 import { UserSamlType } from './db_types';
 import { MetadataModel } from '../services/db_interface';
 import { assertMetadataIsValid } from '../services/validation_ajv';
 import { getOpensearchClient, OpensearchClient } from '../services/db';
-import { ApiResponse, RequestParams } from '@opensearch-project/opensearch/.';
 
 const log = debug('osci:metadata_types');
 const cfg = getcfg();
@@ -407,5 +405,23 @@ export const metadataRaw: GraphQLFieldConfig<any, any> = {
     );
     console.log(metadata);
     return metadata;
+  },
+};
+
+export const queryAuthzMapping: GraphQLFieldConfig<any, any> = {
+  type: AuthZMappingType,
+  description: 'Returns an object of allowed actions for user.',
+  async resolve(_parentValue, _args, context, _info) {
+    const { user } = context;
+    const authz = { can_edit_metadata: false };
+    if (!user || !user.displayName) {
+      return authz;
+    }
+    const allowedRWGroups = cfg.metadata.rw_groups.set;
+    const rwGroups = _.intersection(user.Role, allowedRWGroups);
+    if (!_.isEmpty(rwGroups)) {
+      authz.can_edit_metadata = true;
+    }
+    return authz;
   },
 };
