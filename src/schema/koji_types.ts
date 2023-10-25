@@ -198,7 +198,7 @@ export const KojiBuildInfoType = new GraphQLObjectType({
         return delegateToSchema({
           schema,
           operation: 'query',
-          fieldName: 'koji_build_history',
+          fieldName: 'kojiBuildHistory',
           args: {
             build_id,
             instance,
@@ -230,7 +230,7 @@ export const KojiBuildInfoType = new GraphQLObjectType({
         return delegateToSchema({
           schema,
           operation: 'query',
-          fieldName: 'koji_build_tags',
+          fieldName: 'kojiBuildTags',
           args: {
             build_id,
             instance,
@@ -263,7 +263,7 @@ export const KojiBuildInfoType = new GraphQLObjectType({
         const co = await delegateToSchema({
           schema: schema,
           operation: 'query',
-          fieldName: 'distgit_commit',
+          fieldName: 'distgitCommit',
           args: {
             repo_name: name,
             commit_sha1: sha1,
