@@ -141,7 +141,7 @@ const commitResolver: graphql.GraphQLFieldResolver<any, {}, any> = async (
   return await delegateToSchema({
     schema: schema,
     operation: 'query',
-    fieldName: 'distgit_commit',
+    fieldName: 'distgitCommit',
     args: {
       commit_sha1: sha1,
       instance,
@@ -173,7 +173,7 @@ const tagHistoryResolver: graphql.GraphQLFieldResolver<any, {}, any> = async (
   return await delegateToSchema({
     schema,
     operation: 'query',
-    fieldName: 'koji_build_history_by_nvr',
+    fieldName: 'kojiBuildHistoryByNvr',
     args: {
       instance,
       nvr,
@@ -195,7 +195,7 @@ const tagsResolver: graphql.GraphQLFieldResolver<any, {}, any> = async (
   return await delegateToSchema({
     schema: schema,
     operation: 'query',
-    fieldName: 'koji_build_tags_by_nvr',
+    fieldName: 'kojiBuildTagsByNvr',
     args: {
       instance,
       nvr,

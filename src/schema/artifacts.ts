@@ -525,7 +525,7 @@ const StateType = new GraphQLObjectType({
         return await delegateToSchema({
           schema,
           operation: 'query',
-          fieldName: 'metadata_consolidated',
+          fieldName: 'metadataConsolidated',
           args: {
             testcase_name,
             product_version,
@@ -714,7 +714,7 @@ export const ArtifactHitType = new GraphQLObjectType({
         return delegateToSchema({
           schema: schema,
           operation: 'query',
-          fieldName: 'greenwave_decision',
+          fieldName: 'greenwaveDecision',
           args: greenwaveDecisionArgs,
           context,
           info,
