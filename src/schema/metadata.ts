@@ -188,6 +188,7 @@ const makeDocumentBody = async (
     id: documentId,
     body: documentBody,
     index: paramIndexName,
+    refresh: 'wait_for',
   };
   return document;
 };
@@ -277,6 +278,8 @@ export const metadataUpdate: GraphQLFieldConfig<any, any> = {
       let result: ApiResponse = await opensearchClient.client.delete({
         index: paramIndexName,
         id: documentId,
+        // refreshes shards to make the operation visible to searching
+        refresh: true,
       });
       return {};
     }
