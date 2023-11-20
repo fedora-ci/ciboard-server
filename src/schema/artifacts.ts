@@ -117,6 +117,22 @@ export const makeRequestParamsArtifacts = (
   const paramSortBy = _.isUndefined(sortBy)
     ? '"taskId.number"'
     : JSON.stringify(sortBy);
+  //        "dynamic_templates": [
+  //        {
+  //          "preserve_number": {
+  //            "match_pattern": "regex",
+  //            "path_match": """^(taskId|buildId|mbsId)$""",
+  //            "mapping": {
+  //              "type": "keyword",
+  //              "fields": {
+  //                "number": {
+  //                  "type": "long"
+  //                }
+  //              }
+  //            }
+  //          }
+  //        },
+  // https://www.elastic.co/guide/en/elasticsearch/reference/current/sort-search-results.html#_ignoring_unmapped_fields
   const requestBody = `
   {
     "explain": false,
@@ -151,8 +167,17 @@ export const makeRequestParamsArtifacts = (
         }
       },
       {
-        ${paramSortBy}: {
-          "order": "desc"
+        "taskId.number": {
+          "order": "desc",
+          "unmapped_type" : "long"
+        },
+        "mbsId.number": {
+          "order": "desc",
+          "unmapped_type" : "long"
+        },
+        "buildId.number": {
+          "order": "desc",
+          "unmapped_type" : "long"
         }
       }
     ],
@@ -163,6 +188,7 @@ export const makeRequestParamsArtifacts = (
   const requestParams: RequestParams.Search = {
     body: requestBody,
     index: paramIndexNames,
+    ignore_unavailable: true,
   };
   return requestParams;
 };
@@ -709,7 +735,6 @@ export const ArtifactHitType = new GraphQLObjectType({
           subject,
           rules,
         };
-        console.log('XXXX =>>>>>>>>>>>>>>', greenwaveDecisionArgs);
         // https://www.graphql-tools.com/docs/schema-delegation/
         return delegateToSchema({
           schema: schema,
