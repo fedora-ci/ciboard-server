@@ -26,8 +26,10 @@ import { getcfg } from '../cfg';
 const cfg = getcfg();
 const log = debug('osci:cfgPassport');
 
-type SerializeUserType = Parameters<typeof passport.serializeUser>[0];
-const userSerializer: SerializeUserType = (_req, user, done) => {
+const userSerializer = (
+  user: Express.User,
+  done: (err: any, id?: unknown) => void,
+) => {
   /**
    * This function is called on siging to get User as it knows express
    */
@@ -36,8 +38,10 @@ const userSerializer: SerializeUserType = (_req, user, done) => {
 };
 passport.serializeUser(userSerializer);
 
-type DeSerializeUserType = Parameters<typeof passport.deserializeUser>[0];
-const userDeSerializer: DeSerializeUserType = (_req, user, done) => {
+const userDeSerializer = (
+  user: Express.User,
+  done: (err: any, id?: unknown) => void,
+) => {
   log(' [i] de serialize user: %O', user);
   done(null, user as Express.User);
 };
