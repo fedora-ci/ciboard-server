@@ -56,7 +56,7 @@ const metadataFilter = (
   if (!entryTestcaseName) {
     return false;
   }
-  if (productVersion && productVersion != entryProductVersion) {
+  if (entryProductVersion && productVersion != entryProductVersion) {
     return false;
   }
   if (entryTestcaseNameIsRegex) {
@@ -366,6 +366,7 @@ export const metadataConsolidated: GraphQLFieldConfig<any, any> = {
       entries,
       _.partial(metadataFilter, testcaseName, productVersion),
     );
+    log("related entries for", testcaseName, productVersion, relatedEntries);
     const sortedByPrio = _.sortBy(relatedEntries, [
       function (o) {
         return o.priority;
