@@ -55,7 +55,6 @@ import {
 } from './greenwave_types';
 import { getOSVersionFromNvr } from '../services/misc';
 import { MetadataConsolidatedType } from './metadata';
-import { ErrataToolAutomationStateType } from './eta_types';
 
 const log = debug('osci:schema/artifacts');
 const cfg = getcfg();
@@ -567,9 +566,6 @@ export const ArtifactHitType = new GraphQLObjectType({
           info,
         });
       },
-    },
-    statesEta: {
-      type: new GraphQLList(ErrataToolAutomationStateType),
     },
   }),
 });
