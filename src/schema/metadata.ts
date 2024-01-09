@@ -26,7 +26,6 @@ import {
   GraphQLInt,
   GraphQLList,
   GraphQLString,
-  GraphQLNonNull,
   GraphQLBoolean,
   GraphQLObjectType,
   GraphQLFieldConfig,
@@ -42,50 +41,8 @@ import { MetadataModel } from '../services/db_interface';
 import { assertMetadataIsValid } from '../services/validation_ajv';
 import { getOpensearchClient, OpensearchClient } from '../services/db';
 
-const log = debug('osci:metadata_types');
+const log = debug('osci:metadata');
 const cfg = getcfg();
-
-const metadataFilter = (
-  testcaseName: string,
-  productVersion: string | undefined,
-  metadataEntry: UpdateMetadataArgs,
-) => {
-  const entryProductVersion = metadataEntry.productVersion;
-  const entryTestcaseName = metadataEntry.testcaseName;
-  const entryTestcaseNameIsRegex = metadataEntry.testcaseNameIsRegex;
-  if (!entryTestcaseName) {
-    return false;
-  }
-  if (entryProductVersion && productVersion != entryProductVersion) {
-    return false;
-  }
-  if (entryTestcaseNameIsRegex) {
-    const regex = new RegExp(entryTestcaseName);
-    if (regex.test(testcaseName)) {
-      return true;
-    }
-  } else if (entryTestcaseName === testcaseName) {
-    return true;
-  }
-  return false;
-};
-
-function customMerge(presentVaule: any, newValue: any) {
-  if (
-    ((_.isArray(presentVaule) && _.isArray(newValue)) ||
-      (_.isString(presentVaule) && _.isString(newValue))) &&
-    _.isEmpty(newValue)
-  ) {
-    return presentVaule;
-  }
-  /**
-   * Return: undefined
-   * If customizer returns undefined, merging is handled by the method instead:
-   * Source properties that resolve to undefined are skipped if a destination value exists.
-   * Array and plain object properties are merged recursively.
-   * Other objects and value types are overridden by assignment.
-   */
-}
 
 /**
  * History management is not implemented in Opensearch. In MongoDB it history was in document.
@@ -140,12 +97,6 @@ export const MetadataRawType = new GraphQLObjectType({
   }),
 });
 
-export const MetadataConsolidatedType = new GraphQLObjectType({
-  name: 'MetadataConsolidatedType',
-  fields: () => ({
-    payload: { type: GraphQLJSON, description: 'Consolidated payload' },
-  }),
-});
 
 export const AuthZMappingType = new GraphQLObjectType({
   name: 'AuthZMappingType',
@@ -296,7 +247,7 @@ export const metadataUpdate: GraphQLFieldConfig<any, any> = {
   },
 };
 
-export const makeSearchBodyMetadata = (
+const makeSearchBodyMetadata = (
   _id: string | undefined,
 ): RequestParams.Search => {
   const indexesPrefix = cfg.opensearch.indexes_prefix;
@@ -326,24 +277,7 @@ export const makeSearchBodyMetadata = (
   return requestParams;
 };
 
-export const metadataConsolidated: GraphQLFieldConfig<any, any> = {
-  type: MetadataConsolidatedType,
-  description: 'Returns consolidated metadata for specified testcase.',
-  args: {
-    testcaseName: {
-      type: new GraphQLNonNull(GraphQLString),
-      description:
-        'Exact testcase name. Example: osci.brew-build./plans/tier1-internal.functional',
-    },
-    productVersion: {
-      type: GraphQLString,
-      description:
-        /* product version == greenwave productVersion */
-        'Narrow metadata only for specific product version, including common metadata. Example: rhel-8. If not specified, show for all available products.',
-    },
-  },
-  async resolve(_parentValue, args, _context, _info) {
-    const { testcaseName, productVersion } = args;
+const getAllKnownMetadata = async () : Promise<ApiResponse> => {
     let opensearchClient: OpensearchClient;
     opensearchClient = await getOpensearchClient();
     if (_.isUndefined(opensearchClient.client)) {
@@ -356,26 +290,21 @@ export const metadataConsolidated: GraphQLFieldConfig<any, any> = {
       printify(searchBody),
       printify(_.omit(result.body, ['hits.hits'])),
     );
-    /**
-     * 1. Fetch all entries to metadata entries.
-     * 2. Each entry can be a regex, based on this compare to testcaseName
-     */
-    const hitsItems = _.get(result, 'body.hits.hits', []);
-    const entries = _.map(hitsItems, _.partial(_.get, _, '_source'));
-    const relatedEntries = _.filter(
-      entries,
-      _.partial(metadataFilter, testcaseName, productVersion),
-    );
-    log("related entries for", testcaseName, productVersion, relatedEntries);
-    const sortedByPrio = _.sortBy(relatedEntries, [
-      function (o) {
-        return o.priority;
-      },
-    ]);
-    const payloads = _.map(sortedByPrio, _.partial(_.get, _, 'payload'));
-    const mergedMetadata = _.mergeWith({}, ...payloads, customMerge);
-    return { payload: mergedMetadata };
-  },
+    return  result;
+}
+
+const getAllKnownMetadataMemoized = _.memoize(getAllKnownMetadata)
+
+let lastExecutionTime = 0;
+const delayDuration = 4000; // 4 seconds
+const getAllKnownMetadata4SecondsCached = async () => {
+  const currentTime = Date.now();
+  if (currentTime - lastExecutionTime >= delayDuration) {
+    // If more than 4 seconds have passed, purge cache
+    getAllKnownMetadataMemoized.cache.clear?.apply(this);
+    lastExecutionTime = currentTime;
+  }
+  return await getAllKnownMetadataMemoized();
 };
 
 export const metadataRaw: GraphQLFieldConfig<any, any> = {
