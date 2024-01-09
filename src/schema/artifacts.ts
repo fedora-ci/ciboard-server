@@ -28,6 +28,7 @@ import {
   GraphQLBoolean,
   GraphQLObjectType,
   GraphQLFieldConfig,
+  getNamedType,
 } from 'graphql';
 import GraphQLJSON from 'graphql-type-json';
 import { delegateToSchema } from '@graphql-tools/delegate';
@@ -36,14 +37,14 @@ import { ApiResponse, RequestParams } from '@opensearch-project/opensearch/.';
 import schema from './schema';
 import { printify } from '../services/printify';
 import {
+  AChild,
   canBeGated,
   getIndexName,
   ArtifactHitT,
-  isArtifactRedHatModule,
-  AChild,
+  getTestMsgBody,
   isAChildTestMsg,
   getTestcaseName,
-  getTestMsgBody,
+  isArtifactRedHatModule,
 } from '../services/db_interface';
 import { TKnownType, known_types, getcfg } from '../cfg';
 import { OpensearchClient, getOpensearchClient } from '../services/db';
@@ -53,8 +54,6 @@ import {
   GreenwaveDecisionType,
   getGreenwaveDecisionContext,
 } from './greenwave_types';
-import { getOSVersionFromNvr } from '../services/misc';
-import { MetadataConsolidatedType } from './metadata';
 
 const log = debug('osci:schema/artifacts');
 const cfg = getcfg();
@@ -76,20 +75,6 @@ export type QueryArgsForArtifactChildren = {
   childrenType: string | undefined;
 };
 
-const ComponentComponentMappingType = new GraphQLObjectType({
-  name: 'ComponentComponentMappingType',
-  fields: () => ({
-    component_name: { type: GraphQLString },
-    product_id: { type: GraphQLInt },
-    description: { type: GraphQLString },
-    def_assignee: { type: GraphQLString },
-    def_assignee_name: { type: GraphQLString },
-    qa_contact: { type: GraphQLString },
-    qa_contact_name: { type: GraphQLString },
-    sst_team_name: { type: GraphQLString },
-    _updated: { type: GraphQLString },
-  }),
-});
 
 export const makeRequestParamsArtifacts = (
   queryOptions: QueryOptions,
@@ -248,9 +233,9 @@ export const makeRequestParamsArtifactChildren = (
   return requestParams;
 };
 
-export const ArtifactChildrenHit = new GraphQLObjectType({
+const ArtifactChildrenHit = new GraphQLObjectType({
   name: 'ArtifactChildrenHit',
-  fields: () => ({
+  fields: {
     hit_source: {
       type: GraphQLJSON,
       description: 'db-document',
@@ -259,60 +244,18 @@ export const ArtifactChildrenHit = new GraphQLObjectType({
       type: GraphQLJSON,
       description: 'info about db-document',
     },
-    metadata: {
-      description:
-        'Custom metadata associated with the state provided by the CI system maintainer',
-      type: MetadataConsolidatedType,
-      async resolve(parentValue : AChild, _args, context, info) {
-        const aChild = parentValue;
-        if (!isAChildTestMsg(aChild)) {
-            return null;
-        }
-        const testcaseName = getTestcaseName(aChild);
-        // The metadata_consolidated query requires the test case name to be non-null.
-        if (!testcaseName) return null;
-        const brokerMsgBody = getTestMsgBody(aChild);
-        // Guess product version from the NVR.
-        const { nvr, type } = brokerMsgBody.artifact;
-        // Currently, only RPM and module builds are supported.
-        if (!['brew-build', 'redhat-module'].includes(type)) {
-          log(
-            'Artifact type %s not supported for test metadata delegation',
-            type,
-          );
-          return null;
-        }
-        const productVersion = `rhel-${getOSVersionFromNvr(nvr, type)}`;
-        log(
-          'Delegating metadata query for state: testcase %s, product %s',
-          testcaseName,
-          productVersion,
-        );
-        return await delegateToSchema({
-          schema,
-          operation: 'query',
-          fieldName: 'metadataConsolidated',
-          args: {
-            testcaseName,
-            productVersion,
-          },
-          context,
-          info,
-        });
-      },
-    },
-  }),
+  },
 });
 
-export const ArtifactChildren = new GraphQLObjectType({
+const ArtifactChildren = new GraphQLObjectType({
   name: 'ArtifactChildren',
-  fields: () => ({
+  fields: {
     hits: { type: new GraphQLList(ArtifactChildrenHit) },
     hits_info: {
       type: GraphQLJSON,
       description: 'information about opensearch-query',
     },
-  }),
+  },
 });
 
 export const artifactChildren: GraphQLFieldConfig<any, any> = {
@@ -345,6 +288,7 @@ export const artifactChildren: GraphQLFieldConfig<any, any> = {
   },
   description: 'Returns a documents linked to parent document.',
   async resolve(_parentValue, args, _context, _info) {
+    log("XXXXXXXXXXXXXXXXXXXXXXXXXXXx !!!!!!!!!!!!!! FUCK !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! - OK 3nd");
     const queryArgs: QueryArgsForArtifactChildren = _.pick(args, [
       'from',
       'size',
@@ -415,53 +359,22 @@ export const artifactChildren: GraphQLFieldConfig<any, any> = {
         _.first,
       ),
     );
+    const reducedTotal = recentChildrenForEachThreadId.length;
     log(
       ' [i] total states: %s, reduced: %s',
       hits.length,
-      recentChildrenForEachThreadId.length,
+      reducedTotal,
     );
+    _.set(hits_info, "total.value", reducedTotal);
+    log("XXXXXXXXXXXXXXXXXXXXXXXXXXXx !!!!!!!!!!!!!! FUCK !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! - OK 3nd ENDED ");
     return { hits: recentChildrenForEachThreadId, hits_info };
   },
 };
 
-export const ArtifactsType = new GraphQLObjectType({
-  name: 'ArtifactsType',
-  fields: () => ({
-    hits: { type: new GraphQLList(ArtifactHitType) },
-    hits_info: {
-      type: GraphQLJSON,
-      description: 'information about opensearch-query',
-    },
-  }),
-});
-
-
-const nameFieldForType = (type: TKnownType) => {
-  const includes = _.includes(_.keys(known_types), type);
-  if (!includes) {
-    return 'unknown type';
-  }
-  return known_types[type];
-};
-
-const convertNsvcToNvr = (nsvc: string) => {
-  const splited = nsvc.split(':');
-  if (_.size(splited) !== 4) {
-    console.error(`Encountered invalid NSVC ${nsvc}`);
-    return null;
-  }
-  /**
-   * Convert NSVC to Brew NVR
-   */
-  return `${splited[0]}-${splited[1].replace(/-/g, '_')}-${splited[2]}.${
-    splited[3]
-  }`;
-};
-
-export const ArtifactHitType = new GraphQLObjectType({
+const ArtifactHitType = new GraphQLObjectType({
   name: 'ArtifactHitType',
   description: 'Artifact entry.',
-  fields: () => ({
+  fields: {
     hit_source: {
       type: GraphQLJSON,
       description: 'db-document',
@@ -470,7 +383,6 @@ export const ArtifactHitType = new GraphQLObjectType({
       type: GraphQLJSON,
       description: 'info about db-document',
     },
-    component_mapping: { type: ComponentComponentMappingType },
     children: {
       type: ArtifactChildren,
       args: {
@@ -485,7 +397,8 @@ export const ArtifactHitType = new GraphQLObjectType({
           defaultValue: undefined,
         },
       },
-      async resolve(parentValue, args, context, info) {
+      resolve: async (parentValue, args, context, info) => {
+        log("XXXXXXXXXXXXXXXXXXXXXXXXXXXx !!!!!!!!!!!!!! FUCK !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! - OK 2nd");
         const parentDocId = parentValue.hit_info._id;
         const atype = parentValue.hit_source.aType;
         const childrenType = args.childrenType ? args.childrenType : undefined;
@@ -499,14 +412,14 @@ export const ArtifactHitType = new GraphQLObjectType({
         };
         // https://www.graphql-tools.com/docs/schema-delegation/
         const reply = await delegateToSchema({
-          info,
           args: artifactChildrenArgs,
           schema: schema,
-          context,
           operation: 'query',
           fieldName: 'artifactChildren',
+          returnType: getNamedType(info.returnType),
+          context,
+          info,
         });
-
         return reply;
       },
     },
@@ -520,7 +433,8 @@ export const ArtifactHitType = new GraphQLObjectType({
        * For other cases return emtpy answer
        */
       type: GreenwaveDecisionType,
-      resolve(parentValue: ArtifactHitT, _args, context, info) {
+      resolve: async (parentValue: ArtifactHitT, _args, context, info) => {
+        log("XXXXXXXXXXXXXXXXXXXXXXXXXXXx !!!!!!!!!!!!!! FUCK !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! - OK 2And");
         const { hit_source: hitSource, hit_info: hitInfo } = parentValue;
         if (!canBeGated(hitSource)) {
           log('Cannot be gated %O', hitInfo);
@@ -557,18 +471,56 @@ export const ArtifactHitType = new GraphQLObjectType({
           rules,
         };
         // https://www.graphql-tools.com/docs/schema-delegation/
-        return delegateToSchema({
+
+        const reply = await delegateToSchema({
           schema: schema,
           operation: 'query',
           fieldName: 'greenwaveDecision',
           args: greenwaveDecisionArgs,
+          returnType: getNamedType(info.returnType),
           context,
           info,
         });
+        return reply
       },
     },
-  }),
+  },
 });
+
+const ArtifactsType = new GraphQLObjectType({
+  name: 'ArtifactsType',
+  fields: {
+    hits: { type: new GraphQLList(ArtifactHitType) },
+    hits_info: {
+      type: GraphQLJSON,
+      description: 'information about opensearch-query',
+    },
+  },
+});
+
+
+const nameFieldForType = (type: TKnownType) => {
+  const includes = _.includes(_.keys(known_types), type);
+  if (!includes) {
+    return 'unknown type';
+  }
+  return known_types[type];
+};
+
+const convertNsvcToNvr = (nsvc: string) => {
+  const splited = nsvc.split(':');
+  if (_.size(splited) !== 4) {
+    console.error(`Encountered invalid NSVC ${nsvc}`);
+    return null;
+  }
+  /**
+   * Convert NSVC to Brew NVR
+   */
+  return `${splited[0]}-${splited[1].replace(/-/g, '_')}-${splited[2]}.${
+    splited[3]
+  }`;
+};
+
 
 export const getArtifacts: GraphQLFieldConfig<any, any> = {
   type: ArtifactsType,
@@ -598,7 +550,7 @@ export const getArtifacts: GraphQLFieldConfig<any, any> = {
       description: 'Starting point of the results.',
     },
   },
-  async resolve(_parentValue, args) {
+  resolve: async (_parentValue, args) => {
     const argsDefault = {
       paginationSize: cfg.opensearch.size,
     };

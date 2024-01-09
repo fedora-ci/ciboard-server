@@ -47,7 +47,6 @@ import { getArtifacts, artifactChildren } from './artifacts';
 import {
   metadataRaw,
   queryAuthzMapping,
-  metadataConsolidated,
 } from './metadata';
 import {
   queryGreenwaveInfo,
@@ -62,11 +61,7 @@ const cfg = getcfg();
 
 const RootQuery = new GraphQLObjectType({
   name: 'RootQueryType',
-  fields: () =>
-    _.assign<
-      graphql.GraphQLFieldConfigMap<any, any>,
-      graphql.GraphQLFieldConfigMap<any, any>
-    >(
+  fields: 
       {
         /**
          * Ping-pong
@@ -77,15 +72,13 @@ const RootQuery = new GraphQLObjectType({
             return 'pong';
           },
         },
-      },
-      {
+        // AuthZ
+        authzMapping: queryAuthzMapping,
         // Artifacts
         artifacts: getArtifacts,
         artifactChildren: artifactChildren,
         // Metadata
         metadataRaw: metadataRaw,
-        authzMapping: queryAuthzMapping,
-        metadataConsolidated: metadataConsolidated,
         // Teiid
         teiidEtLinkedAdvisories: teiidQueryETLinkedAdvisories,
         // Dist-git
@@ -114,7 +107,6 @@ const RootQuery = new GraphQLObjectType({
         sstInfo: querySstInfo,
         sstResults: querySstResults,
       },
-    ),
 });
 
 export default RootQuery;
