@@ -59,10 +59,10 @@ const log = debug('osci:schema/artifacts');
 const cfg = getcfg();
 
 export type QueryOptions = {
-  sortBy: string | undefined;
   artTypes: string[] | undefined;
   newerThen: string | undefined;
   queryString: string | undefined;
+  doDeepSearch: boolean | undefined;
   paginationSize: number | undefined;
   paginationFrom: number | undefined;
 };
@@ -80,10 +80,10 @@ export const makeRequestParamsArtifacts = (
   queryOptions: QueryOptions,
 ): RequestParams.Search => {
   const {
-    sortBy,
     artTypes,
     newerThen,
     queryString,
+    doDeepSearch,
     paginationSize,
     paginationFrom,
   } = queryOptions;
@@ -98,9 +98,8 @@ export const makeRequestParamsArtifacts = (
       ? '"*"'
       : JSON.stringify(queryString);
   const paramIndexNames = _.map(artTypes, (artType) => getIndexName(artType));
-  const paramSortBy = _.isUndefined(sortBy)
-    ? '"taskId.number"'
-    : JSON.stringify(sortBy);
+
+  let requestBody: string;
   //        "dynamic_templates": [
   //        {
   //          "preserve_number": {
@@ -117,58 +116,160 @@ export const makeRequestParamsArtifacts = (
   //          }
   //        },
   // https://www.elastic.co/guide/en/elasticsearch/reference/current/sort-search-results.html#_ignoring_unmapped_fields
-  const requestBody = `
-  {
-    "explain": false,
-    "query": {
-      "bool": {
-        "filter": {
-          "has_child": {
-            "type": "message",
-            "query": {
-              "match_all": {}
+
+  if (!doDeepSearch) {
+    requestBody = `
+    {
+      "query": {
+        "bool": {
+          "should": [
+            {
+              "has_child": {
+                "type": "message",
+                "query": {
+                  "query_string": {
+                    "query": ${paramQueryString},
+                    "lenient": true,
+                    "default_operator": "and",
+                    "analyze_wildcard": true,
+                    "allow_leading_wildcard": true,
+                    "type" : "cross_fields"
+                  }
+                },
+                "score_mode": "max",
+                "inner_hits": {
+                  "_source": "false",
+                  "sort": [
+                    {
+                      "_score": {
+                        "order": "desc"
+                      }
+                    },
+                    {
+                      "taskId.number": {
+                        "order": "desc",
+                        "unmapped_type" : "long"
+                      },
+                      "mbsId.number": {
+                        "order": "desc",
+                        "unmapped_type" : "long"
+                      },
+                      "buildId.number": {
+                        "order": "desc",
+                        "unmapped_type" : "long"
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "bool": {
+                "filter": {
+                  "has_child": {
+                    "type": "message",
+                    "query": {
+                      "match_all": {}
+                    }
+                  }
+                },
+                "must": [
+                  {
+                    "query_string": {
+                      "query": ${paramQueryString},
+                      "lenient": true,
+                      "default_operator": "and",
+                      "analyze_wildcard": true,
+                      "allow_leading_wildcard": true,
+                      "type" : "cross_fields"
+                    }
+                  }
+                ]
+              }
             }
-          }
-        },
-        "must": [
-          {
-            "query_string": {
-              "query": ${paramQueryString},
-              "lenient": true,
-              "default_operator": "and",
-              "analyze_wildcard": true,
-              "allow_leading_wildcard": true,
-              "type" : "cross_fields"
-            }
-          }
-        ]
-      }
-    },
-    "sort": [
-      {
-        "_score": {
-          "order": "desc"
+          ]
         }
       },
-      {
-        "taskId.number": {
-          "order": "desc",
-          "unmapped_type" : "long"
+      "sort": [
+        {
+          "_score": {
+            "order": "desc"
+          }
         },
-        "mbsId.number": {
-          "order": "desc",
-          "unmapped_type" : "long"
-        },
-        "buildId.number": {
-          "order": "desc",
-          "unmapped_type" : "long"
+        {
+          "taskId.number": {
+            "order": "desc",
+            "unmapped_type" : "long"
+          },
+          "mbsId.number": {
+            "order": "desc",
+            "unmapped_type" : "long"
+          },
+          "buildId.number": {
+            "order": "desc",
+            "unmapped_type" : "long"
+          }
         }
-      }
-    ],
-    "size": ${paramSize},
-    "from": ${paramFrom}
+      ],
+      "size": ${paramSize},
+      "from": ${paramFrom}
+    }
+    `;
+  } else {
+    requestBody = `
+    {
+      "explain": false,
+      "query": {
+        "bool": {
+          "filter": {
+            "has_child": {
+              "type": "message",
+              "query": {
+                "match_all": {}
+              }
+            }
+          },
+          "must": [
+            {
+              "query_string": {
+                "query": ${paramQueryString},
+                "lenient": true,
+                "default_operator": "and",
+                "analyze_wildcard": true,
+                "allow_leading_wildcard": true,
+                "type" : "cross_fields"
+              }
+            }
+          ]
+        }
+      },
+      "sort": [
+        {
+          "_score": {
+            "order": "desc"
+          }
+        },
+        {
+          "taskId.number": {
+            "order": "desc",
+            "unmapped_type" : "long"
+          },
+          "mbsId.number": {
+            "order": "desc",
+            "unmapped_type" : "long"
+          },
+          "buildId.number": {
+            "order": "desc",
+            "unmapped_type" : "long"
+          }
+        }
+      ],
+      "size": ${paramSize},
+      "from": ${paramFrom}
+    }
+    `;
   }
-  `;
+
   const requestParams: RequestParams.Search = {
     body: requestBody,
     index: paramIndexNames,
@@ -540,6 +641,10 @@ export const getArtifacts: GraphQLFieldConfig<any, any> = {
     queryString: {
       type: GraphQLString,
       description: 'Query string.',
+    },
+    doDeepSearch: {
+      type: GraphQLBoolean,
+      description: 'Look-up for artifacts, with chidlren match query string.',
     },
     paginationSize: {
       type: GraphQLInt,
