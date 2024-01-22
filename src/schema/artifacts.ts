@@ -23,12 +23,12 @@ import debug from 'debug';
 import {
   GraphQLInt,
   GraphQLList,
+  getNamedType,
   GraphQLString,
   GraphQLNonNull,
   GraphQLBoolean,
   GraphQLObjectType,
   GraphQLFieldConfig,
-  getNamedType,
 } from 'graphql';
 import GraphQLJSON from 'graphql-type-json';
 import { delegateToSchema } from '@graphql-tools/delegate';
@@ -37,13 +37,9 @@ import { ApiResponse, RequestParams } from '@opensearch-project/opensearch/.';
 import schema from './schema';
 import { printify } from '../services/printify';
 import {
-  AChild,
   canBeGated,
   getIndexName,
   ArtifactHitT,
-  getTestMsgBody,
-  isAChildTestMsg,
-  getTestcaseName,
   isArtifactRedHatModule,
 } from '../services/db_interface';
 import { TKnownType, known_types, getcfg } from '../cfg';
@@ -117,7 +113,25 @@ export const makeRequestParamsArtifacts = (
   //        },
   // https://www.elastic.co/guide/en/elasticsearch/reference/current/sort-search-results.html#_ignoring_unmapped_fields
 
-  if (!doDeepSearch) {
+  // Use filter, no need scoring
+  let rangeFilterParam = '';
+
+  // 8 == find all docs
+  if (newerThen && newerThen !== '8') {
+    const months : number = _.toNumber(newerThen);
+    rangeFilterParam =  `
+      { 
+        "range": {
+          "@timestamp": {
+            "gt": "now-${months}M"
+          }
+        }
+      },
+    `
+  }
+
+  if (doDeepSearch) {
+    // Deep search query
     requestBody = `
     {
       "query": {
@@ -127,13 +141,22 @@ export const makeRequestParamsArtifacts = (
               "has_child": {
                 "type": "message",
                 "query": {
-                  "query_string": {
-                    "query": ${paramQueryString},
-                    "lenient": true,
-                    "default_operator": "and",
-                    "analyze_wildcard": true,
-                    "allow_leading_wildcard": true,
-                    "type" : "cross_fields"
+                  "bool": {
+                    "must": [
+                        {
+                          "query_string": {
+                            "query": ${paramQueryString},
+                            "lenient": true,
+                            "default_operator": "and",
+                            "analyze_wildcard": true,
+                            "allow_leading_wildcard": true,
+                            "type" : "cross_fields"
+                          }
+                        }
+                    ],
+                    "filter": [
+                      ${_.trimEnd(rangeFilterParam, ', \n')}
+                    ]
                   }
                 },
                 "score_mode": "max",
@@ -165,14 +188,17 @@ export const makeRequestParamsArtifacts = (
             },
             {
               "bool": {
-                "filter": {
-                  "has_child": {
-                    "type": "message",
-                    "query": {
-                      "match_all": {}
+                "filter": [
+                  ${rangeFilterParam}
+                  {
+                    "has_child": {
+                      "type": "message",
+                      "query": {
+                        "match_all": {}
+                      }
                     }
                   }
-                },
+                ],
                 "must": [
                   {
                     "query_string": {
@@ -216,19 +242,23 @@ export const makeRequestParamsArtifacts = (
     }
     `;
   } else {
+    // Not deep search query
     requestBody = `
     {
       "explain": false,
       "query": {
         "bool": {
-          "filter": {
-            "has_child": {
-              "type": "message",
-              "query": {
-                "match_all": {}
+          "filter": [
+              ${rangeFilterParam}
+              {
+                "has_child": {
+                  "type": "message",
+                  "query": {
+                    "match_all": {}
+                  }
+                }
               }
-            }
-          },
+          ],
           "must": [
             {
               "query_string": {
@@ -389,7 +419,6 @@ export const artifactChildren: GraphQLFieldConfig<any, any> = {
   },
   description: 'Returns a documents linked to parent document.',
   async resolve(_parentValue, args, _context, _info) {
-    log("XXXXXXXXXXXXXXXXXXXXXXXXXXXx !!!!!!!!!!!!!! FUCK !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! - OK 3nd");
     const queryArgs: QueryArgsForArtifactChildren = _.pick(args, [
       'from',
       'size',
@@ -467,7 +496,6 @@ export const artifactChildren: GraphQLFieldConfig<any, any> = {
       reducedTotal,
     );
     _.set(hits_info, "total.value", reducedTotal);
-    log("XXXXXXXXXXXXXXXXXXXXXXXXXXXx !!!!!!!!!!!!!! FUCK !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! - OK 3nd ENDED ");
     return { hits: recentChildrenForEachThreadId, hits_info };
   },
 };
@@ -499,7 +527,6 @@ const ArtifactHitType = new GraphQLObjectType({
         },
       },
       resolve: async (parentValue, args, context, info) => {
-        log("XXXXXXXXXXXXXXXXXXXXXXXXXXXx !!!!!!!!!!!!!! FUCK !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! - OK 2nd");
         const parentDocId = parentValue.hit_info._id;
         const atype = parentValue.hit_source.aType;
         const childrenType = args.childrenType ? args.childrenType : undefined;
@@ -535,7 +562,6 @@ const ArtifactHitType = new GraphQLObjectType({
        */
       type: GreenwaveDecisionType,
       resolve: async (parentValue: ArtifactHitT, _args, context, info) => {
-        log("XXXXXXXXXXXXXXXXXXXXXXXXXXXx !!!!!!!!!!!!!! FUCK !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! - OK 2And");
         const { hit_source: hitSource, hit_info: hitInfo } = parentValue;
         if (!canBeGated(hitSource)) {
           log('Cannot be gated %O', hitInfo);
