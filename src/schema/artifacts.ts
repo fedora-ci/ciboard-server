@@ -158,31 +158,6 @@ export const makeRequestParamsArtifacts = (
                       ${_.trimEnd(rangeFilterParam, ', \n')}
                     ]
                   }
-                },
-                "score_mode": "max",
-                "inner_hits": {
-                  "_source": "false",
-                  "sort": [
-                    {
-                      "_score": {
-                        "order": "desc"
-                      }
-                    },
-                    {
-                      "taskId.number": {
-                        "order": "desc",
-                        "unmapped_type" : "long"
-                      },
-                      "mbsId.number": {
-                        "order": "desc",
-                        "unmapped_type" : "long"
-                      },
-                      "buildId.number": {
-                        "order": "desc",
-                        "unmapped_type" : "long"
-                      }
-                    }
-                  ]
                 }
               }
             },
@@ -217,11 +192,6 @@ export const makeRequestParamsArtifacts = (
         }
       },
       "sort": [
-        {
-          "_score": {
-            "order": "desc"
-          }
-        },
         {
           "taskId.number": {
             "order": "desc",
