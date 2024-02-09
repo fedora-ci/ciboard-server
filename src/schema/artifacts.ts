@@ -204,6 +204,10 @@ export const makeRequestParamsArtifacts = (
           "buildId.number": {
             "order": "desc",
             "unmapped_type" : "long"
+          },
+          "@timestamp": {
+            "order": "desc",
+            "unmapped_type" : "long"
           }
         }
       ],
@@ -259,6 +263,10 @@ export const makeRequestParamsArtifacts = (
             "unmapped_type" : "long"
           },
           "buildId.number": {
+            "order": "desc",
+            "unmapped_type" : "long"
+          },
+          "@timestamp": {
             "order": "desc",
             "unmapped_type" : "long"
           }
