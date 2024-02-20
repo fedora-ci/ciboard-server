@@ -128,7 +128,7 @@ export const makeRequestParamsArtifacts = (
     `
   }
   let query = ''
-  if (!isExtendedQs) {
+  if (isExtendedQs) {
     // Extended query
     const qs = _.isUndefined(queryString) || _.isEmpty(queryString)
         ? "*"
