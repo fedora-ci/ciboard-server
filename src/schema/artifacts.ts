@@ -58,6 +58,7 @@ export type QueryOptions = {
   artTypes: string[] | undefined;
   newerThen: string | undefined;
   queryString: string | undefined;
+  isExtendedQs: boolean | undefined;
   doDeepSearch: boolean | undefined;
   paginationSize: number | undefined;
   paginationFrom: number | undefined;
@@ -79,6 +80,7 @@ export const makeRequestParamsArtifacts = (
     artTypes,
     newerThen,
     queryString,
+    isExtendedQs,
     doDeepSearch,
     paginationSize,
     paginationFrom,
@@ -89,10 +91,6 @@ export const makeRequestParamsArtifacts = (
   const paramSize = _.isUndefined(paginationSize)
     ? 10
     : JSON.stringify(paginationSize);
-  const paramQueryString =
-    _.isUndefined(queryString) || _.isEmpty(queryString)
-      ? '"*"'
-      : JSON.stringify(queryString);
   const paramIndexNames = _.map(artTypes, (artType) => getIndexName(artType));
 
   let requestBody: string;
@@ -129,6 +127,43 @@ export const makeRequestParamsArtifacts = (
       },
     `
   }
+  let query = ''
+  if (!isExtendedQs) {
+    // Extended query
+    const qs = _.isUndefined(queryString) || _.isEmpty(queryString)
+        ? "*"
+        : queryString;
+    const paramQueryString = JSON.stringify(qs);
+    query = `
+                  {
+                      "query_string": {
+                        "query": ${paramQueryString},
+                        "lenient": true,
+                        "default_operator": "and",
+                        "analyze_wildcard": true,
+                        "allow_leading_wildcard": true,
+                        "type" : "cross_fields"
+                      }
+                  }
+    `
+  } else {
+    // Simplified query
+    const qs = _.isUndefined(queryString) || _.isEmpty(queryString)
+        ? ""
+        : queryString;
+    const paramQueryString = JSON.stringify(qs);
+    query = `
+                  {
+                    "multi_match": {
+                      "query":  ${paramQueryString},
+                      "operator": "and",
+                      "slop": 0,
+                      "type": "bool_prefix",
+                      "boost": 0
+                    }
+                  }
+            `
+  }
 
   if (doDeepSearch) {
     // Deep search query
@@ -143,16 +178,7 @@ export const makeRequestParamsArtifacts = (
                 "query": {
                   "bool": {
                     "must": [
-                        {
-                          "query_string": {
-                            "query": ${paramQueryString},
-                            "lenient": true,
-                            "default_operator": "and",
-                            "analyze_wildcard": true,
-                            "allow_leading_wildcard": true,
-                            "type" : "cross_fields"
-                          }
-                        }
+                      ${query}
                     ],
                     "filter": [
                       ${_.trimEnd(rangeFilterParam, ', \n')}
@@ -175,16 +201,7 @@ export const makeRequestParamsArtifacts = (
                   }
                 ],
                 "must": [
-                  {
-                    "query_string": {
-                      "query": ${paramQueryString},
-                      "lenient": true,
-                      "default_operator": "and",
-                      "analyze_wildcard": true,
-                      "allow_leading_wildcard": true,
-                      "type" : "cross_fields"
-                    }
-                  }
+                  ${query}
                 ]
               }
             }
@@ -234,16 +251,7 @@ export const makeRequestParamsArtifacts = (
               }
           ],
           "must": [
-            {
-              "query_string": {
-                "query": ${paramQueryString},
-                "lenient": true,
-                "default_operator": "and",
-                "analyze_wildcard": true,
-                "allow_leading_wildcard": true,
-                "type" : "cross_fields"
-              }
-            }
+            ${query}
           ]
         }
       },
@@ -417,7 +425,7 @@ export const artifactChildren: GraphQLFieldConfig<any, any> = {
     }
     const requestParams: RequestParams.Search =
       makeRequestParamsArtifactChildren(queryArgs);
-    log(' [i] run request: %s', printify(requestParams));
+    log(' [i] run request: %s', printify(requestParams.body));
     let result: ApiResponse;
     try {
       result = await opensearchClient.client.search(requestParams);
@@ -650,6 +658,11 @@ export const getArtifacts: GraphQLFieldConfig<any, any> = {
       type: GraphQLBoolean,
       description: 'Look-up for artifacts, with chidlren match query string.',
     },
+    isExtendedQs: {
+      type: GraphQLBoolean,
+      // https://www.elastic.co/guide/en/elasticsearch/reference/7.17/query-dsl-query-string-query.html
+      description: 'query string, using a parser with a strict syntax.'
+    },
     paginationSize: {
       type: GraphQLInt,
       description: 'Number of results to return per page.',
@@ -671,7 +684,7 @@ export const getArtifacts: GraphQLFieldConfig<any, any> = {
     }
     const requestParams: RequestParams.Search =
       makeRequestParamsArtifacts(queryOptions);
-    log(' [i] run request: %s', printify(requestParams));
+    log(' [i] run request for getArtifacts: %s', requestParams.body);
     let result: ApiResponse;
     try {
       result = await opensearchClient.client.search(requestParams);
