@@ -165,6 +165,9 @@ export const makeRequestParamsArtifacts = (
             `
   }
 
+  // exists - explained at https://www.elastic.co/guide/en/elasticsearch/reference/current/parent-join.html#_searching_with_parent_join
+  // term - https://stackoverflow.com/questions/69827007/search-for-parents-only-with-joins
+
   if (doDeepSearch) {
     // Deep search query
     requestBody = `
@@ -192,11 +195,8 @@ export const makeRequestParamsArtifacts = (
                 "filter": [
                   ${rangeFilterParam}
                   {
-                    "has_child": {
-                      "type": "message",
-                      "query": {
-                        "match_all": {}
-                      }
+                    "term": {
+                      "artToMsgs": "artifact"
                     }
                   }
                 ],
@@ -242,11 +242,8 @@ export const makeRequestParamsArtifacts = (
           "filter": [
               ${rangeFilterParam}
               {
-                "has_child": {
-                  "type": "message",
-                  "query": {
-                    "match_all": {}
-                  }
+                "term": {
+                  "artToMsgs": "artifact"
                 }
               }
           ],
