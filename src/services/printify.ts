@@ -44,3 +44,11 @@ export const printify = (obj: any): string => {
 };
 
 export default printify;
+
+/**
+ * to preserve any properties not owned by the object
+    _.defaultsDeep(
+      _.toPlainObject(_.pick(obj, Object.getOwnPropertyNames(obj))),
+      obj,
+    ),
+ */
