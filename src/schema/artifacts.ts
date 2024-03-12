@@ -422,7 +422,7 @@ export const artifactChildren: GraphQLFieldConfig<any, any> = {
     }
     const requestParams: RequestParams.Search =
       makeRequestParamsArtifactChildren(queryArgs);
-    log(' [i] run request: %s', printify(requestParams.body));
+    log(' [i] run request: %s', requestParams.body);
     let result: ApiResponse;
     try {
       result = await opensearchClient.client.search(requestParams);

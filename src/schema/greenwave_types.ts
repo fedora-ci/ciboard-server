@@ -401,15 +401,17 @@ export const queryGreenwaveDecision: GraphQLFieldConfig<any, any> = {
         'A string identifying the software artefact we are making a decision about. The meaning of the identifier depends on the subject type.',
     },
   },
-  resolve(_parentValue, args) {
+  async resolve(_parentValue, args) {
     if (!greenwave_cfg?.url) {
       throw new Error('Greenwave is not configured.');
     }
     const postQuery = { ...args };
     postQuery.verbose = true;
     log('Query greenwave for decision: %o', postQuery);
-    return axios
+    const ret = await axios
       .post(greenwave_cfg.decision.api_url.toString(), postQuery)
       .then((x) => x.data);
+    log(" [d] greenwave reply: for %s", args.subject?.[0]?.item, ret);
+    return ret;
   },
 };

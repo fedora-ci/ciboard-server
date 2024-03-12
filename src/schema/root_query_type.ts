@@ -1,7 +1,7 @@
 /*
  * This file is part of ciboard-server
 
- * Copyright (c) 2021, 2022, 2023 Andrei Stepanov <astepano@redhat.com>
+ * Copyright (c) 2021, 2022, 2023, 2024 Andrei Stepanov <astepano@redhat.com>
  * 
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -24,7 +24,6 @@ import * as graphql from 'graphql';
 
 const { GraphQLString, GraphQLObjectType } = graphql;
 
-import { getcfg } from '../cfg';
 import {
   queryWaiverDbInfo,
   queryWaiverDbWaiver,
@@ -55,9 +54,9 @@ import {
   queryGreenwaveSubjectTypes,
 } from './greenwave_types';
 import _static from '../routes/static';
+import { queryGitlabCommit, queryGitlabCommitMr } from './gitlab_types';
 
 const log = debug('osci:root_query_type');
-const cfg = getcfg();
 
 const RootQuery = new GraphQLObjectType({
   name: 'RootQueryType',
@@ -106,7 +105,11 @@ const RootQuery = new GraphQLObjectType({
         sstList: querySstList,
         sstInfo: querySstInfo,
         sstResults: querySstResults,
+        // Gitlab
+        gitlabCommit: queryGitlabCommit,
+        gitlabCommitMr: queryGitlabCommitMr
       },
 });
+
 
 export default RootQuery;

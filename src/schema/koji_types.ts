@@ -1,7 +1,7 @@
 /*
  * This file is part of ciboard-server
 
- * Copyright (c) 2021 Andrei Stepanov <astepano@redhat.com>
+ * Copyright (c) 2021, 2024 Andrei Stepanov <astepano@redhat.com>
  * 
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -40,6 +40,7 @@ import { CommitObject, DistGitInstanceInputType } from './distgit_types';
 import schema from './schema';
 import { delegateToSchema } from '@graphql-tools/delegate';
 import { GraphQLFieldConfig, GraphQLNonNull } from 'graphql';
+import GraphQLJSON from 'graphql-type-json';
 
 const log = debug('osci:koji_types');
 
@@ -273,6 +274,32 @@ export const KojiBuildInfoType = new GraphQLObjectType({
           info,
         });
         return co;
+      },
+    },
+    /** Gitlab MR for commit */
+    gitlabCommitMr: {
+      type: GraphQLJSON,
+      async resolve(parentValue, _args, context, info) {
+        const { source } = parentValue;
+        const name_sha1 = _.last(_.split(source, 'rpms/'));
+        const [name_dot_git, sha1] = _.split(name_sha1, '#');
+        const name = _.replace(name_dot_git, /.git$/, '');
+        log('Getting MR info for %s:%s', name, sha1);
+        if (!_.every([name, sha1])) {
+          return {};
+        }
+        const mrInfo = await delegateToSchema({
+          schema: schema,
+          operation: 'query',
+          fieldName: 'gitlabCommitMr',
+          args: {
+            repo_name: name,
+            commit_sha1: sha1,
+          },
+          context,
+          info,
+        });
+        return mrInfo;
       },
     },
   }),
