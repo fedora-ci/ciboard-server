@@ -196,12 +196,7 @@ export const metadataUpdate: GraphQLFieldConfig<any, any> = {
      * Local devel: set `user` to:
      * fakeUser = { nameID: 'an', displayName: 'A N', Role: ['Employee'] } as UserSamlType,
      */
-    const fakeUser = {
-      nameID: 'an',
-      displayName: 'A N',
-      Role: ['Employee'],
-    } as UserSamlType;
-    const rwGroups = _.intersection(fakeUser.Role, allowedRWGroups);
+    const rwGroups = _.intersection(user.Role, allowedRWGroups);
     if (_.isEmpty(rwGroups)) {
       const comment = util.format(
         'User does not stay in any allowed RW group to update metadata: %s, %s.',
@@ -213,7 +208,7 @@ export const metadataUpdate: GraphQLFieldConfig<any, any> = {
     }
     log(
       'User %s is granted to perform RW action. User is part of %s groups.',
-      fakeUser.displayName,
+      user.displayName,
       rwGroups,
     );
     let opensearchClient: OpensearchClient;
