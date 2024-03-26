@@ -464,11 +464,39 @@ export const artifactChildren: GraphQLFieldConfig<any, any> = {
     /**
      * get the most recent state for each thread
      */
+    /**
+     * Scope: https://issues.redhat.com/browse/OSCI-6583
+     * There is no easy way to sort messages.
+     *
+     * For example:
+     * ID:umb-prod-6.umb-001.prod.us-east-1.aws.redhat.com-35261-1709117399162-9:2916955:0:0:1 – running (link)
+     * ID:umb-prod-2.umb-001.prod.us-east-1.aws.redhat.com-45023-1709116831584-40:685167:0:0:1 – complete (link)
+     * 1709117399162 (running) > 1709116831584 (complete)
+     *
+     * they are not guaranteed to be there
+     * The format of that id can change a lot.
+     * But the message has a header field named broker-time-in that will have a non-zero value for messages that are consumed.
+     */
+    const sortByState = (obj : any) => {
+        const stateMapping = {
+          queued: 1,
+          running: 2,
+          error: 3,
+          complete: 4
+        };
+        const brokerTopic =  _.get(obj, 'hit_source.brokerTopic', 'unknown');
+        const msgId = _.get(obj, 'hit_info._id');
+        // Extract the ending part of the brokerTopic
+        const state = brokerTopic.split('.').pop();
+        // Return the assigned value if found in the mapping, otherwise return message id
+        const sortValue = _.get(stateMapping, state, msgId);
+        return sortValue;
+    };
     const recentChildrenForEachThreadId = _.map(
       childrenWithSameThreadId,
       _.flow(
         _.identity,
-        _.partialRight(_.orderBy, 'hit_info._id', 'desc'),
+        _.partialRight(_.orderBy, [sortByState], 'desc'),
         _.first,
       ),
     );
