@@ -1,5 +1,5 @@
 # Based on https://github.com/sclorg/s2i-nodejs-container
-FROM registry.access.redhat.com/ubi9/nodejs-18
+FROM registry.access.redhat.com/ubi8/nodejs-18
 
 # Additional packages to install before the build.
 ARG ADDPKGS=
