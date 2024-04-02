@@ -11,7 +11,7 @@ ARG GITCOMMIT=
 ENV CIBOARD_SERVER_GIT_COMMIT $GITCOMMIT
 
 USER root
-RUN dnf install --assumeyes krb5-workstation postgresql $ADDPKGS && \
+RUN dnf install --assumeyes krb5-workstation libpq $ADDPKGS && \
     dnf clean all --assumeyes
 
 COPY linux-krb5.conf /etc/krb5.conf
