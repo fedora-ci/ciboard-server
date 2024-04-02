@@ -20,6 +20,7 @@
 
 import _ from 'lodash';
 import debug from 'debug';
+import moment from 'moment';
 import {
   GraphQLInt,
   GraphQLList,
@@ -477,19 +478,25 @@ export const artifactChildren: GraphQLFieldConfig<any, any> = {
      * The format of that id can change a lot.
      * But the message has a header field named broker-time-in that will have a non-zero value for messages that are consumed.
      */
+    const stateMapping = {
+      queued: 1,
+      running: 2,
+      error: 3,
+      complete: 4
+    };
     const sortByState = (obj : any) => {
-        const stateMapping = {
-          queued: 1,
-          running: 2,
-          error: 3,
-          complete: 4
-        };
         const brokerTopic =  _.get(obj, 'hit_source.brokerTopic', 'unknown');
-        const msgId = _.get(obj, 'hit_info._id');
+        const generatedAt = _.get(obj, 'hit_source.rawData.message.brokerMsgBody.generated_at');
+        // https://pagure.io/fedora-ci/messages/blob/master/f/schemas/common.yaml#_8
+        if (typeof generatedAt === 'string' && moment(generatedAt, moment.ISO_8601, true).isValid()) {
+          // Convert generatedAt to Unix time for next sort
+          const unixTime = moment(generatedAt).valueOf();
+          return unixTime;
+        }
         // Extract the ending part of the brokerTopic
         const state = brokerTopic.split('.').pop();
         // Return the assigned value if found in the mapping, otherwise return message id
-        const sortValue = _.get(stateMapping, state, msgId);
+        const sortValue = _.get(stateMapping, state, generatedAt);
         return sortValue;
     };
     const recentChildrenForEachThreadId = _.map(
