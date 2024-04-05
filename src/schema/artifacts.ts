@@ -51,6 +51,7 @@ import {
   GreenwaveDecisionType,
   getGreenwaveDecisionContext,
 } from './greenwave_types';
+import { mkStagesAndStates } from './stages_states';
 
 const log = debug('osci:schema/artifacts');
 const cfg = getcfg();
@@ -358,7 +359,7 @@ const ArtifactChildrenHit = new GraphQLObjectType({
     hit_info: {
       type: GraphQLJSON,
       description: 'info about db-document',
-    },
+    }
   },
 });
 
@@ -370,6 +371,10 @@ const ArtifactChildren = new GraphQLObjectType({
       type: GraphQLJSON,
       description: 'information about opensearch-query',
     },
+    stagesSummary: {
+      type: GraphQLJSON,
+      description: 'summary for stages, works only for onlyActual parameter',
+    }
   },
 });
 
@@ -514,7 +519,9 @@ export const artifactChildren: GraphQLFieldConfig<any, any> = {
       reducedTotal,
     );
     _.set(hits_info, "total.value", reducedTotal);
-    return { hits: recentChildrenForEachThreadId, hits_info };
+    // Calculate summary
+    const stagesSummary = mkStagesAndStates(recentChildrenForEachThreadId as any);
+    return { hits: recentChildrenForEachThreadId, hits_info, stagesSummary };
   },
 };
 
