@@ -66,22 +66,20 @@ export SRV_GREENWAVE_URL="https://greenwave.engineering.redhat.com"
 export SRV_WAIVERDB_URL="https://waiverdb.engineering.redhat.com"
 ```
 
-4.  Setup container running MongoDB:
+4.  Start the server:
 
 ```bash
-podman run -p 27017:27017 -e MONGODB_USERNAME=user -e MONGODB_PASSWORD=password -e MONGODB_DATABASE=ci-messages -e MONGODB_ROOT_PASSWORD=passwordrootmongodb bitnami/mongodb:latest
+DEBUG="osci:*" npm run dev:server
 ```
 
-5.  Start the server:
+## Opensearch integration
+
+Connect the dashbaord to Opensearch by setting the following environment variables (this can be done when the server and client are running if desired): 
 
 ```bash
-SRV_DB_URL='mongodb://root:passwordrootmongodb@127.0.0.1' DEBUG="osci:*" npm run dev:server
-```
-
-**Optional step:** use official read only database `SRV_DB_URL` provided by OSCI team:
-
-```bash
-SRV_DB_DB_NAME="oscidashboard" SRV_DB_URL='mongodb://oscidashboardro_user:XXXXX@dbproxy01.dba-001.prod.iad2.dc.redhat.com:32701/oscidashboard?authSource=admin&tls=true&tlsInsecure=true&replicaSet=mongoshared7&directConnection=true' DEBUG="osci:*" npm run dev:server
+# ...
+export SRV_OPENSEARCH_INDEXES_PREFIX="dev-"
+export SRV_OPENSEARCH_CLIENT_NODE="https://admin:<pwd>@opensearch-1.prod.osci.redhat.com:9200"
 ```
 
 ## Sentry integration
