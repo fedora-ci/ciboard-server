@@ -1,5 +1,5 @@
 # Based on https://github.com/sclorg/s2i-nodejs-container
-FROM quay.io/sclorg/nodejs-18-c8s
+FROM registry.access.redhat.com/ubi8/nodejs-18
 
 # Additional packages to install before the build.
 ARG ADDPKGS=
@@ -11,7 +11,7 @@ ARG GITCOMMIT=
 ENV CIBOARD_SERVER_GIT_COMMIT $GITCOMMIT
 
 USER root
-RUN dnf install --assumeyes krb5-workstation postgresql $ADDPKGS && \
+RUN dnf install --assumeyes krb5-workstation libpq $ADDPKGS && \
     dnf clean all --assumeyes
 
 COPY linux-krb5.conf /etc/krb5.conf

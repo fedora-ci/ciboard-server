@@ -26,7 +26,7 @@ import yaml from 'js-yaml';
 import assert from 'assert';
 import { URL } from 'url';
 import { SamlConfig } from 'passport-saml/lib/passport-saml';
-import { MongoClientOptions } from 'mongodb';
+import { ClientOptions } from '@opensearch-project/opensearch/.';
 
 const log = debug('osci:cfg');
 /** Default config must present */
@@ -54,7 +54,9 @@ for (const cfgpath of OVERRIDE_CFG_LOOKUP_PATHS) {
   log(cfgpath);
 }
 
-export const mk_config_from_env = (envToConfigMap?: object): object | undefined => {
+export const mk_config_from_env = (
+  envToConfigMap?: object,
+): object | undefined => {
   if (!envToConfigMap) return;
   const entries = Object.entries(envToConfigMap);
   const envEntries: ([string, string | string[]] | undefined)[] = entries.map(
@@ -194,28 +196,10 @@ export interface Cfg {
     url: string;
     results: string;
   };
-  db: {
-    /**
-     * http://mongodb.github.io/node-mongodb-native/3.5/api/MongoClient.html
-     */
-    url: string;
-    limit_default: number;
-    db_name: string;
-    collections: {
-      artifacts: {
-        name: string;
-        indexes: [{ keys: any; options: any }];
-      };
-      components: {
-        name: string;
-        indexes: [{ keys: any; options: any }];
-      };
-      metadata: {
-        name: string;
-        indexes: [{ keys: any; options: any }];
-      };
-    };
-    options: MongoClientOptions;
+  opensearch: {
+    client: ClientOptions;
+    indexes_prefix: string;
+    size: number;
   };
   koji_fp: {
     host: string;
@@ -287,15 +271,17 @@ const cfg = getcfg();
  *
  */
 export const known_types = {
-  'brew-build': 'payload.nvr',
-  'koji-build': 'payload.nvr',
-  'koji-build-cs': 'payload.nvr',
-  'redhat-module': 'payload.nsvc',
+  'brew-build': 'nvr',
+  'koji-build': 'nvr',
+  'koji-build-cs': 'nvr',
+  'redhat-module': 'nsvc',
   // XXX: ???
   'copr-build': 'component',
   // XXX: ???
-  'productmd-compose': 'payload.compose_id',
-  'redhat-container-image': 'payload.nvr',
+  'productmd-compose': 'compose_id',
+  'redhat-container-image': 'nvr',
+  'dist-git-pr': 'xxx',
+  'fedora-module': 'nsvc',
 };
 
 export type TKnownType = keyof typeof known_types;

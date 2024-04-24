@@ -30,23 +30,10 @@ datagrepper:
 sst:
   url: 'https://sst.osci.redhat.com'
   results: 'results/sstlist.json'
-db:
-  # http://mongodb.github.io/node-mongodb-native/3.5/api/MongoClient.html
-  url: ~
-  limit_default: 20
-  db_name: 'ci-messages'
-  collections:
-    metadata:
-      name: 'metadata'
-      indexes: []
-    artifacts:
-      name: 'artifacts'
-    components:
-      name: 'components_mapping'
-  collection_name: 'artifacts'
-  collection_name_components: 'components_mapping'
-  options:
-    tlsCAFile: ~
+opensearch:
+  client: {}
+  indexes_prefix: ~
+  size: 10
 koji_fp:
   host: 'koji.fedoraproject.org'
   port: 443
@@ -122,19 +109,13 @@ env_to_config_map:
   sst:
     url: SRV_SST_URL
     results: SRV_SST_RESULTS
-  db:
-    url: SRV_DB_URL
-    limit_default: SRV_DB_LIMIT_DEFAULT
-    db_name: SRV_DB_DB_NAME
-    collections:
-      artifacts:
-        name: SRV_DB_COLLECTION_NAME
-      components:
-        name: SRV_DB_COLLECTION_NAME_COMPONENTS
-      metadata:
-        name: SRV_DB_COLLECTION_NAME_METADATA
-    options:
-      tlsCAFile: SRV_DB_OPTIONS_TLSCAFILE
+  opensearch:
+    client:
+      node: SRV_OPENSEARCH_CLIENT_NODE
+      ssl:
+        ca: SRV_OPENSEARCH_CLIENT_SSL_CA
+    indexes_prefix: SRV_OPENSEARCH_INDEXES_PREFIX
+    size: SRV_OPENSEARCH_SIZE
   koji_fp:
     host: SRV_KOJI_FP_HOST
     port: SRV_KOJI_FP_PORT

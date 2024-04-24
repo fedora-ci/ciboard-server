@@ -1,7 +1,7 @@
 /*
  * This file is part of ciboard-server
 
- * Copyright (c) 2021 Andrei Stepanov <astepano@redhat.com>
+ * Copyright (c) 2021, 2024 Andrei Stepanov <astepano@redhat.com>
  * 
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -21,10 +21,29 @@
 import _ from 'lodash';
 import * as graphql from 'graphql';
 import moment from 'moment';
+import { GraphQLFieldConfig, getNamedType } from 'graphql';
+import zlib from 'zlib';
+import util from 'util';
+import axios from 'axios';
+import { delegateToSchema } from '@graphql-tools/delegate';
+
+const { GraphQLNonNull, GraphQLList, GraphQLString, GraphQLObjectType } =
+  graphql;
+
+import schema from './schema';
+import { getcfg } from '../cfg';
+import { GitlabApiCommitType, GitlabCommitType } from './gitlab_types';
+import GraphQLJSON from 'graphql-type-json';
+import printify from '../services/printify';
+import { report } from 'process';
+const cfg = getcfg();
+const zlib_inflate = util.promisify(zlib.inflate);
+
+const splitAt = (index: number) => (x: any[]) =>
+  [x.slice(0, index), x.slice(index)];
 
 const debug = require('debug');
 const log = debug('osci:distgit_types');
-const { GraphQLList, GraphQLString, GraphQLObjectType } = graphql;
 
 /**
  * Returns an arrays of lines, that begins with 'start_word'
@@ -57,61 +76,6 @@ export type CommitObjectType = {
   committer_name: string;
 };
 
-/**
- * GitLab API commit reply:
- *
- * {
- *   "id": "6faa892b04c6704c0a9db9521c5e1e38b6e1e2b2",
- *   "short_id": "6faa892b",
- *   "created_at": "2021-08-09T19:28:18.000+00:00",
- *   "parent_ids": [
- *     "66f2dd6994df776bde92d9da04e86404ba054bb7"
- *   ],
- *   "title": "Rebuilt for IMA sigs, glibc 2.34, aarch64 flags",
- *   "message": "Rebuilt for IMA sigs, glibc 2.34, aarch64 flags\n\nRelated: rhbz#1991688\nSigned-off-by: Mohan Boddu <...>\n",
- *   "author_name": "Mohan Boddu",
- *   "author_email": "...",
- *   "authored_date": "2021-08-09T19:28:18.000+00:00",
- *   "committer_name": "Mohan Boddu",
- *   "committer_email": "...",
- *   "committed_date": "2021-08-09T19:28:18.000+00:00",
- *   "trailers": {},
- *   "web_url": "https://gitlab.com/redhat/centos-stream/rpms/bash/-/commit/6faa892b04c6704c0a9db9521c5e1e38b6e1e2b2",
- *   "stats": {
- *     "additions": 5,
- *     "deletions": 1,
- *     "total": 6
- *   },
- *   "status": null,
- *   "project_id": 23656762,
- *   "last_pipeline": null
- * }
- */
-
-export type GitLabApiCommitType = {
-  id: string;
-  short_id: string;
-  created_at: string;
-  parent_ids: string[];
-  title: string;
-  message: string;
-  author_name: string;
-  author_email: string;
-  authored_date: string;
-  committer_name: string;
-  committer_email: string;
-  committed_date: string;
-  trailers: {};
-  web_url: string;
-  stats: {
-    additions: number;
-    deletions: number;
-    total: number;
-  };
-  status: null;
-  project_id: number;
-  last_pipeline: null;
-};
 
 /**
  * {
@@ -169,7 +133,7 @@ export const commitObjFromPagureApi = (
  */
 
 export const commitObjFromGitLabApi = (
-  commitApi: GitLabApiCommitType,
+  commitApi: GitlabApiCommitType,
 ): CommitObjectType => {
   const co: CommitObjectType = {
     commit_message: commitApi.message,
@@ -289,3 +253,85 @@ export const DistGitInstanceInputType = new graphql.GraphQLEnumType({
     cs: { value: 'cs' },
   },
 });
+
+// Query for information on a specific commit in the Dist-Git.
+export const queryDistGitCommit: GraphQLFieldConfig<any, any> = {
+  /**
+   * Inspired by: https://git-scm.com/book/en/v2/Git-Internals-Transfer-Protocols
+   */
+  type: CommitObject,
+  args: {
+    instance: {
+      type: DistGitInstanceInputType,
+      description: 'Dist-git name',
+      defaultValue: 'fp',
+    },
+    repo_name: {
+      type: new GraphQLNonNull(GraphQLString),
+      description: 'Repo name.',
+    },
+    namespace: {
+      type: GraphQLString,
+      description: 'Namespace: rpms, modules, containers,...',
+      defaultValue: 'rpms',
+    },
+    commit_sha1: {
+      type: new GraphQLNonNull(GraphQLString),
+      description: 'Commit SHA1 to lookup',
+    },
+  },
+  async resolve(_parentValue, args, context, info) {
+    /**
+     * https://github.com/git/git/blob/master/Documentation/technical/http-protocol.txt
+     */
+    const { commit_sha1, repo_name, namespace, instance } = args;
+    log(
+      'Query %s dist-git %s/%s:%s',
+      instance,
+      namespace,
+      repo_name,
+      commit_sha1,
+    );
+    const [dir, file] = splitAt(2)(commit_sha1);
+    var url;
+    let commit_obj: CommitObjectType | undefined;
+    if (instance === 'rh') {
+      url = `${cfg.distgit.rh.base_url}/cgit/${namespace}/${repo_name}/objects/${dir}/${file}`;
+      const reply = await axios.get(url, {
+        responseType: 'arraybuffer',
+      });
+      const commit_obj_raw = await zlib_inflate(reply.data);
+      commit_obj = commitObjFromRaw(commit_obj_raw);
+    }
+    if (instance === 'cs') {
+        const query = `
+          query GetGitlabCommit($repo_name: String!, $namespace: String!, $commit_sha1: String!) {
+            gitlabCommit(repo_name: $repo_name, namespace: $namespace, commit_sha1: $commit_sha1)
+          }
+        `;
+        const variables = {repo_name, namespace, commit_sha1};
+        const result = await graphql.graphql(schema, query, null, null, variables);
+        log(" [I] query: %s gives result: %O", query, result);
+        commit_obj = commitObjFromGitLabApi(result.data?.gitlabCommit);
+    }
+    if (instance === 'fp') {
+      const repo_name_ = _.replace(repo_name, /\.git$/, '');
+      url = `${cfg.distgit.fp.base_url_api}/${namespace}/${repo_name_}/c/${commit_sha1}/info`;
+      const reply = await axios.get(url);
+      commit_obj = commitObjFromPagureApi(reply.data);
+    }
+    if (_.isUndefined(commit_obj)) {
+      return {};
+    }
+    log(
+      'Reply %s dist-git %s/%s:%s commit-object:%s%o',
+      instance,
+      namespace,
+      repo_name,
+      commit_sha1,
+      '\n',
+      commit_obj,
+    );
+    return commit_obj;
+  },
+};

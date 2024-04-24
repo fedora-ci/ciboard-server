@@ -1,7 +1,7 @@
 /*
  * This file is part of ciboard-server
  *
- * Copyright (c) 2021 Andrei Stepanov <astepano@redhat.com>
+ * Copyright (c) 2021, 2023 Andrei Stepanov <astepano@redhat.com>
  * Copyright (c) 2022 Matěj Grabovský <mgrabovs@redhat.com>
  *
  * This program is free software; you can redistribute it and/or
@@ -23,22 +23,24 @@ import _ from 'lodash';
 import debug from 'debug';
 import * as graphql from 'graphql';
 import {
-  GraphQLBoolean,
   GraphQLInt,
   GraphQLList,
+  GraphQLString,
+  GraphQLBoolean,
   GraphQLNonNull,
   GraphQLObjectType,
-  GraphQLString,
+  GraphQLFieldConfig,
 } from 'graphql';
 import { delegateToSchema } from '@graphql-tools/delegate';
 
 import schema from './schema';
 import { CommitObject, DistGitInstanceInputType } from './distgit_types';
 import {
-  KojiBuildTagsType,
   KojiHistoryType,
+  KojiBuildTagsType,
   KojiInstanceInputType,
 } from './koji_types';
+import * as mbs from '../services/mbs';
 
 const log = debug('osci:mbs_types');
 
@@ -139,7 +141,7 @@ const commitResolver: graphql.GraphQLFieldResolver<any, {}, any> = async (
   return await delegateToSchema({
     schema: schema,
     operation: 'query',
-    fieldName: 'distgit_commit',
+    fieldName: 'distgitCommit',
     args: {
       commit_sha1: sha1,
       instance,
@@ -171,7 +173,7 @@ const tagHistoryResolver: graphql.GraphQLFieldResolver<any, {}, any> = async (
   return await delegateToSchema({
     schema,
     operation: 'query',
-    fieldName: 'koji_build_history_by_nvr',
+    fieldName: 'kojiBuildHistoryByNvr',
     args: {
       instance,
       nvr,
@@ -193,7 +195,7 @@ const tagsResolver: graphql.GraphQLFieldResolver<any, {}, any> = async (
   return await delegateToSchema({
     schema: schema,
     operation: 'query',
-    fieldName: 'koji_build_tags_by_nvr',
+    fieldName: 'kojiBuildTagsByNvr',
     args: {
       instance,
       nvr,
@@ -306,3 +308,27 @@ export const MbsInstanceInputType = new graphql.GraphQLEnumType({
     rh: { value: 'rh' },
   },
 });
+
+export const queryMbsBuild: GraphQLFieldConfig<any, any> = {
+  type: MbsBuildType,
+  description:
+    'Query for data on a module build from the Module Build System (MBS)',
+  args: {
+    build_id: {
+      type: new GraphQLNonNull(GraphQLInt),
+      description: 'ID of the MBS build to look up',
+    },
+    instance: {
+      type: MbsInstanceInputType,
+      description: 'Identifier of the Module Build System instance to query',
+      defaultValue: MbsInstanceInputType.getValue('rh'),
+    },
+  },
+  async resolve(_parentValue, args) {
+    const { build_id, instance } = args;
+    log('Querying MBS instance ‘%s’ for build ID %s', instance, build_id);
+    const reply = await mbs.queryModuleBuild(instance, build_id);
+    log('MBS reply: %o', reply);
+    return reply;
+  },
+};
