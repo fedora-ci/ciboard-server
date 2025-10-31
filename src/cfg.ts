@@ -169,7 +169,7 @@ export const getcfg = _.once((): Cfg => {
   return new Config() as unknown as Cfg;
 });
 
-export type MbsInstance = 'cs' | 'fp' | 'rh';
+export type MbsInstance = 'cs' | 'fp' | 'rh' | 'pn';
 
 export interface MbsInstanceConfig {
   url: string;

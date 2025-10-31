@@ -306,6 +306,7 @@ export const MbsInstanceInputType = new graphql.GraphQLEnumType({
     cs: { value: 'cs' },
     fp: { value: 'fp' },
     rh: { value: 'rh' },
+    pn: { value: 'pn' },
   },
 });
 
