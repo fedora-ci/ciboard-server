@@ -287,5 +287,6 @@ export const DistGitInstanceInputType = new graphql.GraphQLEnumType({
     rh: { value: 'rh' },
     fp: { value: 'fp' },
     cs: { value: 'cs' },
+    pn: { value: 'pn' },
   },
 });
