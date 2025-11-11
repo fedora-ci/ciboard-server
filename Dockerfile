@@ -15,8 +15,8 @@ RUN dnf install --assumeyes krb5-workstation libpq $ADDPKGS && \
     dnf clean all --assumeyes
 
 COPY linux-krb5.conf /etc/krb5.conf
-COPY rhcachain.crt ./
-RUN trust anchor --store "$HOME/rhcachain.crt"
+COPY rhca.crt ./
+RUN trust anchor --store "$HOME/rhca.crt"
 
 COPY assets/ $HOME/assets/
 COPY src/ $HOME/src/
