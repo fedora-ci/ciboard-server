@@ -37,6 +37,7 @@ import { ApiResponse, RequestParams } from '@opensearch-project/opensearch/.';
 
 import schema from './schema';
 import { printify } from '../services/printify';
+import { koji_query } from '../services/kojibrew';
 import {
   canBeGated,
   getIndexName,
@@ -603,6 +604,25 @@ const ArtifactHitType = new GraphQLObjectType({
           /* nsvc -> nvr */
           gatedItem = convertNsvcToNvr(gatedItem);
         }
+        /** Draft release is `<release>,draft_<build id>`. */
+        const draftMatch = /,draft_(\d+)$/.exec(gatedItem || '');
+        if (draftMatch) {
+          /**
+           * Draft builds are renamed when promoted. Greenwave knows only the current NVR,
+           * so resolve it, in case the stored one is stale.
+           * Parents created by CI test messages have no buildId.
+           */
+          const { buildId: storedBuildId } = hitSource as { buildId?: string };
+          const buildId = storedBuildId || draftMatch[1];
+          try {
+            const build = await koji_query('brew', 'getBuild', Number(buildId));
+            if (build && !build.draft && build.nvr) {
+              gatedItem = build.nvr;
+            }
+          } catch (err) {
+            log('Failed to resolve NVR of draft build %s: %O', buildId, err);
+          }
+        }
         const decision_context = getGreenwaveDecisionContext(hitSource);
         const rules = getGreenwaveRules(hitSource);
         const product_version = greenwave.decision.product_version(
@@ -633,7 +653,15 @@ const ArtifactHitType = new GraphQLObjectType({
           context,
           info,
         });
-        return reply
+        /**
+         * delegateToSchema() returns errors of the delegated resolver instead of throwing them.
+         * Do not fail the whole artifact because of a missing gating status.
+         */
+        if (reply instanceof Error) {
+          log('Failed to get greenwave decision for %s: %O', gatedItem, reply);
+          return null;
+        }
+        return reply;
       },
     },
   },
